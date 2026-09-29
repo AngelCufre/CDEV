@@ -10,7 +10,7 @@ export function isDebugMode() {
   return new URLSearchParams(window.location.search).has('debug');
 }
 
-export function createDebugTools({ renderer, getStateMachine }) {
+export function createDebugTools({ renderer, getStateMachine, sceneNames = [], goTo }) {
   const stats = new Stats();
   stats.showPanel(0);
   stats.dom.style.position = 'fixed';
@@ -27,15 +27,25 @@ export function createDebugTools({ renderer, getStateMachine }) {
   infoFolder.add(infoState, 'geometrias').listen();
   infoFolder.add(infoState, 'texturas').listen();
 
-  const narrativeFolder = gui.addFolder('Narrativa (saltar estado)');
-  const estados = ['SLEEPING', 'WAKING', 'GETTING_UP', 'EXPLORING', 'REALIZATION'];
-  const narrativeActions = {};
-  for (const estado of estados) {
-    narrativeActions[estado] = () => {
-      const sm = getStateMachine();
-      if (sm) sm.transition(estado);
-    };
-    narrativeFolder.add(narrativeActions, estado);
+  const sceneFolder = gui.addFolder('Escena');
+  const sceneActions = {};
+  for (const name of sceneNames) {
+    sceneActions[name] = () => goTo(name);
+    sceneFolder.add(sceneActions, name);
+  }
+
+  // Los botones de estado se rearman con los estados de la escena activa.
+  let narrativeFolder = null;
+  function refreshStates() {
+    narrativeFolder?.destroy();
+    narrativeFolder = gui.addFolder('Narrativa (saltar estado)');
+    const sm = getStateMachine();
+    if (!sm) return;
+    const narrativeActions = {};
+    for (const estado of Object.keys(sm.states)) {
+      narrativeActions[estado] = () => getStateMachine()?.transition(estado);
+      narrativeFolder.add(narrativeActions, estado);
+    }
   }
 
   function updateInfoPanel() {
@@ -48,6 +58,7 @@ export function createDebugTools({ renderer, getStateMachine }) {
   return {
     stats,
     gui,
+    refreshStates,
     beginFrame() {
       stats.begin();
     },

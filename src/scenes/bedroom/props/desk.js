@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { furniture } from '../roomLayout.js';
 
 /**
- * Escritorio con notebook cerrada y apuntes desordenados encima.
+ * Escritorio con notebook cerrada encima. Los apuntes van aparte (props/notes.js)
+ * porque cada hoja lleva su propia textura y no se puede fusionar con el resto.
  * (La notebook es decorativa en esta iteración — no forma parte de los interactuables.)
  */
 export function buildDesk(buckets, obstacles) {
@@ -45,21 +46,6 @@ export function buildDesk(buckets, obstacles) {
     0,
   );
 
-  // Apuntes desparramados (hojas finas con leve rotación)
-  const paperY = notebookY + 0.005;
-  buckets.addBox('paper', 0.21, 0.005, 0.29, center.x - 0.2, paperY, center.z + 0.05, 0.12);
-  buckets.addBox('paper', 0.21, 0.005, 0.29, center.x - 0.28, paperY + 0.006, center.z + 0.1, -0.2);
-  buckets.addBox(
-    'paper',
-    0.21,
-    0.005,
-    0.29,
-    center.x - 0.15,
-    paperY + 0.012,
-    center.z + 0.15,
-    0.35,
-  );
-
   // Lapicera (apoyada, como una birome tirada sobre el escritorio)
   buckets.addBox(
     'metal',
@@ -78,4 +64,6 @@ export function buildDesk(buckets, obstacles) {
       new THREE.Vector3(center.x + width / 2, height, center.z + depth / 2),
     ),
   );
+
+  return { topY: notebookY };
 }

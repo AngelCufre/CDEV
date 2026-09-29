@@ -11,9 +11,9 @@ export class Collision {
     this.radius = radius;
     this.obstacles = []; // Array<THREE.Box3>
     // Reutilizamos estas cajas/vectores para no asignar memoria en cada resolución.
-    this._playerBox = new THREE.Box3();
-    this._min = new THREE.Vector3();
-    this._max = new THREE.Vector3();
+    this._fromBox = new THREE.Box3();
+    this._toBox = new THREE.Box3();
+    this._center = new THREE.Vector3();
   }
 
   addObstacle(box3) {
@@ -21,40 +21,46 @@ export class Collision {
   }
 
   /**
-   * Dado la posición actual y el desplazamiento deseado (Vector3, se modifica el resultado
-   * en `outPosition`), devuelve la posición resultante ya resuelta contra obstáculos.
-   * `position` es la posición horizontal del jugador (se ignora Y para las colisiones).
+   * Aplica el desplazamiento deseado (deltaX, deltaZ) sobre `position`, resolviendo
+   * contra los obstáculos. Se ignora Y para las colisiones.
    */
   resolve(position, deltaX, deltaZ) {
     let x = position.x;
     let z = position.z;
 
     // Eje X
-    x += deltaX;
-    if (this._collidesAt(x, z)) {
-      x -= deltaX;
-    }
+    if (this._canMove(x, z, x + deltaX, z)) x += deltaX;
 
     // Eje Z (independiente, para permitir sliding)
-    z += deltaZ;
-    if (this._collidesAt(x, z)) {
-      z -= deltaZ;
-    }
+    if (this._canMove(x, z, x, z + deltaZ)) z += deltaZ;
 
     position.x = x;
     position.z = z;
   }
 
-  _collidesAt(x, z) {
-    const r = this.radius;
-    this._min.set(x - r, 0, z - r);
-    this._max.set(x + r, 2.2, z + r);
-    this._playerBox.min.copy(this._min);
-    this._playerBox.max.copy(this._max);
+  _canMove(fromX, fromZ, toX, toZ) {
+    this._setPlayerBox(this._fromBox, fromX, fromZ);
+    this._setPlayerBox(this._toBox, toX, toZ);
 
     for (let i = 0; i < this.obstacles.length; i += 1) {
-      if (this._playerBox.intersectsBox(this.obstacles[i])) return true;
+      const obstacle = this.obstacles[i];
+      if (!this._toBox.intersectsBox(obstacle)) continue;
+      if (!this._fromBox.intersectsBox(obstacle)) return false;
+
+      // Ya estaba encimado (por ejemplo, si una pose de animación lo dejó adentro):
+      // se permite solo alejarse del centro del obstáculo, para que pueda salir
+      // en vez de quedar trabado, pero no meterse más.
+      obstacle.getCenter(this._center);
+      const away =
+        (toX - fromX) * (fromX - this._center.x) + (toZ - fromZ) * (fromZ - this._center.z);
+      if (away <= 0) return false;
     }
-    return false;
+    return true;
+  }
+
+  _setPlayerBox(box, x, z) {
+    const r = this.radius;
+    box.min.set(x - r, 0, z - r);
+    box.max.set(x + r, 2.2, z + r);
   }
 }

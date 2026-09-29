@@ -4,6 +4,7 @@ import { Input } from './core/Input.js';
 import { AudioManager } from './core/AudioManager.js';
 import { Overlay } from './ui/Overlay.js';
 import { BedroomScene } from './scenes/bedroom/BedroomScene.js';
+import { BusStopScene } from './scenes/busStop/BusStopScene.js';
 import { isDebugMode, createDebugTools } from './utils/debug.js';
 
 const canvas = document.getElementById('app-canvas');
@@ -13,13 +14,27 @@ const engine = new Engine(canvas);
 const overlay = new Overlay(overlayRoot);
 const audio = new AudioManager(engine.camera);
 const input = new Input(engine.camera, canvas);
-const sceneManager = new SceneManager({ engine, input, audio, overlay });
-
 let debugTools = null;
+const sceneManager = new SceneManager({
+  engine,
+  input,
+  audio,
+  overlay,
+  onSceneLoaded: () => debugTools?.refreshStates(),
+});
+sceneManager.register('habitacion', BedroomScene);
+sceneManager.register('parada', BusStopScene);
+
+// ?escena=parada arranca directo en esa escena (útil para probar sin rehacer la anterior).
+const requestedScene = new URLSearchParams(window.location.search).get('escena');
+const firstScene = sceneManager.has(requestedScene) ? requestedScene : 'habitacion';
+
 if (isDebugMode()) {
   debugTools = createDebugTools({
     renderer: engine.renderer,
     getStateMachine: () => sceneManager.currentScene?.narrative?.machine ?? null,
+    sceneNames: ['habitacion', 'parada'],
+    goTo: (name) => sceneManager.goTo(name),
   });
   // Solo en modo debug: acceso rápido desde la consola del navegador para inspección manual.
   window.__debugApp = { sceneManager, engine };
@@ -41,6 +56,6 @@ overlay.showStartScreen(async () => {
   await audio.unlock();
   input.lock();
 
-  await sceneManager.loadScene(BedroomScene);
+  await sceneManager.goTo(firstScene);
   engine.start(frame);
 });

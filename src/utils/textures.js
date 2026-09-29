@@ -143,3 +143,184 @@ export function createPhoneScreenTexture(notifications = []) {
   texture.needsUpdate = true;
   return texture;
 }
+
+/**
+ * Cielo nublado para mapear en una esfera (BackSide): degradé gris de cenit a horizonte
+ * con nubes achatadas superpuestas. La fila superior del canvas es el cenit y la del medio
+ * el horizonte (convención de UV de SphereGeometry).
+ */
+export function createOvercastSkyTexture({ cenit = '#4b535c', horizonte = '#8e979f' } = {}) {
+  const width = 1024;
+  const height = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, height / 2);
+  gradient.addColorStop(0, cenit);
+  gradient.addColorStop(1, horizonte);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height / 2);
+  ctx.fillStyle = horizonte;
+  ctx.fillRect(0, height / 2, width, height / 2);
+
+  // Nubes: manchas radiales achatadas, más densas y chicas cerca del horizonte
+  // (perspectiva). Se dibujan también desplazadas un ancho para que el seam no se note.
+  for (let i = 0; i < 160; i += 1) {
+    const y = 20 + Math.random() ** 0.6 * (height / 2 - 30);
+    const cercaniaHorizonte = y / (height / 2);
+    const radio = 150 - cercaniaHorizonte * 100 + Math.random() * 60;
+    const shade = 80 + Math.floor(Math.random() * 90);
+    const x = Math.random() * width;
+    for (const offset of [-width, 0, width]) {
+      ctx.save();
+      ctx.translate(x + offset, y);
+      ctx.scale(1, 0.35);
+      const blob = ctx.createRadialGradient(0, 0, 0, 0, 0, radio);
+      blob.addColorStop(0, `rgba(${shade}, ${shade + 6}, ${shade + 12}, 0.35)`);
+      blob.addColorStop(1, `rgba(${shade}, ${shade + 6}, ${shade + 12}, 0)`);
+      ctx.fillStyle = blob;
+      ctx.beginPath();
+      ctx.arc(0, 0, radio, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** Pasto mojado: verde oscuro apagado con variación de tono. */
+export function createWetGrassTexture() {
+  const size = 128;
+  const canvas = makeCanvas(size);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#4a5a3e';
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < 1200; i += 1) {
+    const shade = Math.random() * 0.2 - 0.1;
+    ctx.fillStyle = shade > 0 ? `rgba(200,220,180,${shade})` : `rgba(10,20,5,${-shade})`;
+    ctx.fillRect(Math.random() * size, Math.random() * size, 1, 3);
+  }
+  return finalize(canvas, 30);
+}
+
+/**
+ * Gotas y chorreaduras sobre el vidrio. El canal alfa define cuánto se ve el vidrio:
+ * base casi transparente y gotas más opacas, para usar como map de un material transparente.
+ */
+export function createRainOnGlassTexture() {
+  const width = 512;
+  const height = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(190, 210, 225, 0.12)';
+  ctx.fillRect(0, 0, width, height);
+
+  // Chorreaduras: líneas verticales con leve zigzag que terminan en una gota.
+  for (let i = 0; i < 18; i += 1) {
+    let x = Math.random() * width;
+    const yStart = Math.random() * height * 0.6;
+    const yEnd = yStart + 30 + Math.random() * height * 0.5;
+    ctx.strokeStyle = 'rgba(225, 235, 245, 0.28)';
+    ctx.lineWidth = 1 + Math.random() * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, yStart);
+    for (let y = yStart; y < yEnd; y += 6) {
+      x += Math.random() * 2 - 1;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(235, 242, 250, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(x, yEnd, 2.5, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Gotas sueltas: brillo arriba y borde inferior más oscuro (refracción).
+  for (let i = 0; i < 200; i += 1) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const r = 0.6 + Math.random() ** 3 * 2.4;
+    ctx.fillStyle = 'rgba(70, 80, 92, 0.12)';
+    ctx.beginPath();
+    ctx.arc(x, y + r * 0.3, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(235, 242, 250, 0.35)';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return finalize(canvas, 1);
+}
+
+/** Cartel de parada de colectivo: fondo azul, "PARADA" y la línea que pasa. */
+export function createBusStopSignTexture(linea = '18') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 320;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1d4f91';
+  ctx.fillRect(0, 0, 256, 320);
+  ctx.strokeStyle = '#f2f2f2';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(8, 8, 240, 304);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 50px sans-serif';
+  ctx.fillText('PARADA', 128, 78);
+
+  // Pictograma simple de colectivo.
+  ctx.fillRect(58, 104, 140, 70);
+  ctx.fillStyle = '#1d4f91';
+  ctx.fillRect(70, 114, 34, 26);
+  ctx.fillRect(111, 114, 34, 26);
+  ctx.fillRect(152, 114, 34, 26);
+  ctx.beginPath();
+  ctx.arc(88, 178, 13, 0, Math.PI * 2);
+  ctx.arc(168, 178, 13, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#f2c230';
+  ctx.fillRect(78, 214, 100, 74);
+  ctx.fillStyle = '#1a1a1a';
+  ctx.font = 'bold 58px sans-serif';
+  ctx.fillText(linea, 128, 272);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/** Letrero LED de destino del colectivo (número de línea + destino, en naranja). */
+export function createBusDestinationTexture(linea = '18', destino = 'CIUDAD UNIV.') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 80;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0b0b0b';
+  ctx.fillRect(0, 0, 512, 80);
+  ctx.fillStyle = '#ffa726';
+  ctx.shadowColor = '#ffa726';
+  ctx.shadowBlur = 10;
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 54px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(linea, 18, 42);
+  ctx.font = 'bold 40px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(destino, 496, 43);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}

@@ -4,6 +4,7 @@ import {
   createFloorTexture,
   createWoodTexture,
   createFabricTexture,
+  createRainOnGlassTexture,
 } from '../../utils/textures.js';
 
 /**
@@ -60,18 +61,18 @@ export function createBedroomMaterials() {
     roughness: 0.9,
   });
 
-  // Vidrio simple y liviano: MeshStandardMaterial transparente en vez de
-  // MeshPhysicalMaterial + transmission (mucho más caro, requiere pases extra
-  // del renderer) ya que solo necesitamos un aspecto translúcido básico.
-  const glass = new THREE.MeshStandardMaterial({
-    color: 0xbfe0f0,
+  // Vidrio simple y liviano: material transparente en vez de MeshPhysicalMaterial
+  // + transmission (mucho más caro, requiere pases extra del renderer) ya que solo
+  // necesitamos un aspecto translúcido básico.
+  // La textura trae las gotas de lluvia en el canal alfa: el vidrio en sí es casi
+  // transparente y las gotas se ven más opacas. Es MeshBasicMaterial porque la cara
+  // interior del vidrio no recibe la luz de la ventana y las gotas se verían como manchas.
+  const glass = new THREE.MeshBasicMaterial({
+    map: createRainOnGlassTexture(),
     transparent: true,
-    opacity: 0.25,
-    roughness: 0.05,
-    metalness: 0,
+    depthWrite: false,
   });
 
-  const paper = new THREE.MeshStandardMaterial({ color: 0xf5f2e8, roughness: 0.9 });
   const screenOff = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
   const door = new THREE.MeshStandardMaterial({
     map: createWoodTexture('#6b4a2e'),
@@ -89,7 +90,6 @@ export function createBedroomMaterials() {
     fabricClothes,
     pillow,
     glass,
-    paper,
     screenOff,
     door,
   };

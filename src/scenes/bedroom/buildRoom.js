@@ -161,7 +161,8 @@ export function buildRoom(materials) {
     zSouth,
   );
 
-  // Puerta (cerrada, decorativa por ahora — no interactuable en esta iteración)
+  // Puerta (cerrada). Es la salida de la escena: su geometría se fusiona con el resto
+  // de la madera y aparte se arma una caja invisible para poder apuntarle.
   addBox(
     woodGeometries,
     room.door.width - 0.05,
@@ -171,6 +172,13 @@ export function buildRoom(materials) {
     (room.door.height - 0.03) / 2,
     zSouth - t * 0.3,
   );
+  const doorHitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(room.door.width, room.door.height, 0.1),
+    new THREE.MeshBasicMaterial(),
+  );
+  doorHitbox.position.set(room.door.centerX, room.door.height / 2, zSouth - t * 0.3 - 0.05);
+  doorHitbox.visible = false;
+  group.add(doorHitbox);
 
   // --- Paredes este y oeste (sólidas) ---
   addBox(wallGeometries, t, room.height, room.depth, halfW + t / 2, room.height / 2, 0);
@@ -196,5 +204,5 @@ export function buildRoom(materials) {
   for (const geo of wallGeometries) geo.dispose();
   for (const geo of woodGeometries) geo.dispose();
 
-  return { group, obstacles };
+  return { group, obstacles, doorMesh: doorHitbox };
 }
