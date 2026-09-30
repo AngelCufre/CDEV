@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
-import { createBusDestinationTexture } from '../../utils/textures.js';
+import { createBusDestinationTexture, createBusCrowdTexture } from '../../utils/textures.js';
 import { paint, box, facadePlane, mergeParts } from '../../world/lowPoly.js';
 import { street, busStop } from './layout.js';
 
 /**
- * Tránsito de la calle: autos que pasan cada tanto por ambos carriles y el colectivo,
- * que aparece a lo lejos, frena en la parada y abre la puerta.
+ * Tránsito de la calle: autos que pasan cada tanto por ambos carriles y el colectivo.
+ * El colectivo puede venir lleno (amaga a frenar y sigue de largo) o con lugar (frena
+ * en la parada y abre la puerta); el mismo objeto se reutiliza en cada pasada.
  *
  * Todos los vehículos miran a +x en coordenadas locales; los que van hacia -x se giran
  * 180°. Cada uno lleva su sonido posicional y conos de luz (aditivos) delante de los faros,
@@ -160,7 +161,44 @@ function buildBus(beams) {
   bus.add(doorHitbox);
 
   addBeams(bus, beams, halfLength + 0.05, 0.75, [0.9, -0.9]);
-  return { object: bus, door, doorHitbox };
+  return { object: bus, door, doorHitbox, crowd: buildBusCrowd(halfLength, bus) };
+}
+
+/**
+ * Gente apretada en las ventanillas, la puerta y el parabrisas: se muestra solo cuando
+ * el colectivo viene lleno. Son planos apenas por fuera de los vidrios.
+ */
+function buildBusCrowd(halfLength, bus) {
+  const material = new THREE.MeshBasicMaterial({ map: createBusCrowdTexture() });
+  const crowd = new THREE.Group();
+  crowd.name = 'bus-crowd';
+
+  // `uScale`/`uOffset` recortan un tramo de la textura para planos chicos, así no se
+  // aplastan todas las siluetas en la puerta o el parabrisas.
+  const addPanel = (width, height, uScale, uOffset, place) => {
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const uv = geometry.attributes.uv;
+    for (let i = 0; i < uv.count; i += 1) uv.setX(i, uv.getX(i) * uScale + uOffset);
+    const mesh = new THREE.Mesh(geometry, material);
+    place(mesh);
+    crowd.add(mesh);
+  };
+
+  addPanel(9.3, 1.05, 1, 0, (m) => m.position.set(-0.55, 2.3, BUS_HALF_WIDTH + 0.004));
+  addPanel(10.8, 1.05, 1.15, 0.3, (m) => {
+    m.rotation.y = Math.PI;
+    m.position.set(0.1, 2.3, -BUS_HALF_WIDTH - 0.004);
+  });
+  // Contra el vidrio de la puerta (por delante de la hoja, que queda cerrada).
+  addPanel(0.9, 1.3, 0.12, 0.45, (m) => m.position.set(BUS_DOOR_X, 1.95, BUS_HALF_WIDTH + 0.052));
+  addPanel(2.1, 1.1, 0.25, 0.7, (m) => {
+    m.rotation.y = Math.PI / 2;
+    m.position.set(halfLength + 0.004, 2.1, 0);
+  });
+
+  crowd.visible = false;
+  bus.add(crowd);
+  return crowd;
 }
 
 export function createTraffic({ audio }) {
@@ -234,23 +272,68 @@ export function createTraffic({ audio }) {
   group.add(bus.object);
   // Frena con la puerta apenas pasando el poste de la parada.
   const busTargetX = busStop.x + 0.9 - BUS_DOOR_X;
-  let busState = 'hidden'; // 'hidden' | 'arriving' | 'stopped'
+  // A esta distancia de la parada (m) se avisa que "viene el colectivo".
+  const APPROACH_NOTICE = 30;
+  let busState = 'hidden'; // 'hidden' | 'arriving' | 'stopped' | 'passing'
   let busSound = null;
-  let onBusArrived = null;
+  let onBusEvent = null;
+  let busFull = false;
+  let notified = { approaching: false, passed: false };
 
-  function spawnBus() {
+  /** `full`: viene lleno y no para. Si no, frena en la parada y abre la puerta. */
+  function spawnBus({ full = false } = {}) {
     if (busState !== 'hidden') return;
-    busState = 'arriving';
+    busState = full ? 'passing' : 'arriving';
+    busFull = full;
     eastboundBlocked = true;
+    notified = { approaching: false, passed: false };
+    bus.object.position.x = -SPAWN_X;
     bus.object.visible = true;
+    bus.crowd.visible = full;
+    bus.door.visible = true;
     busSound = audio.createVehicleSound('bus');
     bus.object.add(busSound.audio);
   }
 
+  function emit(event) {
+    onBusEvent?.(event, { full: busFull });
+  }
+
+  function hideBus() {
+    busSound.stop();
+    busSound = null;
+    bus.object.visible = false;
+    busState = 'hidden';
+    eastboundBlocked = false;
+    emit('gone');
+  }
+
   function updateBus(delta) {
-    if (busState !== 'arriving') return;
-    const remaining = busTargetX - bus.object.position.x;
+    if (busState === 'hidden' || busState === 'stopped') return;
+    const doorX = bus.object.position.x + BUS_DOOR_X;
     const cruise = colectivo.velocidad;
+
+    if (!notified.approaching && doorX > busStop.x - APPROACH_NOTICE) {
+      notified.approaching = true;
+      emit('approaching');
+    }
+
+    if (busState === 'passing') {
+      // Amaga a frenar cerca de la parada (como si el chofer dudara) y sigue.
+      const distance = Math.abs(doorX - busStop.x);
+      const minimum = colectivo.velocidadMinimaLleno;
+      const speed = minimum + (cruise - minimum) * Math.min(1, distance / 20);
+      busSound.setRolling(speed / cruise);
+      bus.object.position.x += speed * delta;
+      if (!notified.passed && doorX > busStop.x) {
+        notified.passed = true;
+        emit('passed');
+      }
+      if (bus.object.position.x > DESPAWN_X) hideBus();
+      return;
+    }
+
+    const remaining = busTargetX - bus.object.position.x;
     const brakingDistance = (cruise * cruise) / (2 * colectivo.frenado);
     // Velocidad crucero y, al acercarse, la que permite frenar justo en la parada.
     const speed =
@@ -262,7 +345,7 @@ export function createTraffic({ audio }) {
       busState = 'stopped';
       bus.door.visible = false; // se abre la puerta
       audio.playBrakeHiss();
-      onBusArrived?.();
+      emit('arrived');
       return;
     }
     bus.object.position.x += Math.max(speed, 0.3) * delta;
@@ -275,11 +358,12 @@ export function createTraffic({ audio }) {
       get isStopped() {
         return busState === 'stopped';
       },
-      get isComing() {
+      get isActive() {
         return busState !== 'hidden';
       },
-      onArrived(callback) {
-        onBusArrived = callback;
+      /** Recibe ('approaching' | 'passed' | 'gone' | 'arrived', { full }). */
+      onEvent(callback) {
+        onBusEvent = callback;
       },
     },
     spawnBus,

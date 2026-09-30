@@ -21,8 +21,11 @@ export const sidewalk = {
 /** Casas de este lado de la calle: la fachada mira a la calle (-z). */
 export const housesFrontZ = 9.5;
 
-/** La casa del estudiante (de donde acaba de salir), con su portón en el cerco. */
-export const home = { x: -6.5, gateWidth: 1.2 };
+/**
+ * La casa del estudiante (de donde sale), con su portón en el cerco. El jardín del
+ * frente es caminable: va del cerco a la fachada y ocupa el ancho del terreno.
+ */
+export const home = { x: -6.5, gateWidth: 1.2, lotHalfWidth: 3 };
 
 /** Poste de la parada (sin techo). El colectivo frena con la puerta a su altura. */
 export const busStop = { x: 2, z: 3.95 };
@@ -30,8 +33,11 @@ export const busStop = { x: 2, z: 3.95 };
 /** Zona caminable: la vereda, entre estos extremos en X. */
 export const walkableX = { min: -16, max: 16 };
 
-/** Donde aparece el jugador: en su portón, mirando a la calle. */
-export const playerStart = { x: home.x, z: 6.0, yaw: 0 };
+/** Donde aparece el jugador: recién salido por la puerta de su casa, mirando a la calle. */
+export const playerStart = { x: home.x, z: housesFrontZ - 0.7, yaw: 0 };
+
+/** Llegó a la parada cuando está sobre la vereda a menos de esta distancia del poste (en X). */
+export const busStopArrivalDistance = 3.5;
 
 /** Faroles de la cuadra (este lado y enfrente). */
 export const lampPosts = [

@@ -64,8 +64,10 @@ export const config = {
     horaInicio: '07:57',
     // Tiempo acelerado: 1 minuto de juego cada estos segundos reales.
     segundosPorMinuto: 8,
-    // El colectivo aparece a lo lejos a estos segundos de empezar la escena.
-    colectivoApareceSegundos: 55,
+    // Los colectivos recién empiezan a venir cuando el jugador llega a la parada.
+    // El primero viene lleno y no para; el segundo sí.
+    primerColectivoSegundos: 8, // desde que llega a la parada
+    segundoColectivoSegundos: 20, // desde que el primero se pierde de vista
     linea: '18',
     destino: 'CIUDAD UNIV.',
     bateriaCelular: 9, // %
@@ -95,6 +97,8 @@ export const config = {
     colectivo: {
       velocidad: 9, // m/s
       frenado: 2.2, // m/s²
+      // El lleno "amaga" a frenar al pasar por la parada pero no baja de esta velocidad.
+      velocidadMinimaLleno: 5.5, // m/s
     },
   },
 

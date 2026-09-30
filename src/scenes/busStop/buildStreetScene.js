@@ -49,7 +49,7 @@ const FAR_HOUSES = [
 
 const YARD_TREES = [
   { x: -16, z: 7.9, type: 'round', scale: 1.2 },
-  { x: -3.4, z: 8.0, type: 'pine', scale: 1.1 },
+  { x: -1.9, z: 8.0, type: 'pine', scale: 1.1 },
   { x: 9.8, z: 7.9, type: 'round', scale: 1.1 },
   { x: 22.7, z: 8.0, type: 'pine', scale: 1.3 },
   { x: -20.5, z: -7.9, type: 'pine', scale: 1.3 },
@@ -99,8 +99,28 @@ function buildFences(parts) {
   // Este lado: con el hueco del portón de la casa del estudiante.
   addFence(parts, { fromX: -40, toX: home.x - gateHalf, z: fenceZ, railOffsetZ: -0.06 });
   addFence(parts, { fromX: home.x + gateHalf, toX: 40, z: fenceZ, railOffsetZ: -0.06 });
+  // Postes del portón (quedó abierto: salió apurado).
+  for (const x of [home.x - gateHalf, home.x + gateHalf]) {
+    parts.push(paint(box(0.13, 1.15, 0.13, x, 0.575, fenceZ), 0x3b3029));
+  }
+  // Cercos laterales del jardín, para separarlo de los vecinos.
+  for (const x of [home.x - home.lotHalfWidth, home.x + home.lotHalfWidth]) {
+    addFenceAlongZ(parts, x, fenceZ, housesFrontZ);
+  }
   // Enfrente.
   addFence(parts, { fromX: -40, toX: 40, z: -fenceZ });
+}
+
+/** Cerco perpendicular a la calle (a lo largo de Z), mismo estilo que `addFence`. */
+function addFenceAlongZ(parts, x, fromZ, toZ) {
+  const color = 0x4e4036;
+  for (let z = fromZ; z <= toZ + 0.001; z += 1.5) {
+    parts.push(paint(box(0.08, 1.0, 0.08, x, 0.5, z), color));
+  }
+  const length = toZ - fromZ;
+  for (const y of [0.35, 0.75]) {
+    parts.push(paint(box(0.04, 0.07, length, x, y, (fromZ + toZ) / 2), color));
+  }
 }
 
 function buildHouses(parts) {
@@ -168,11 +188,24 @@ function buildObstacles() {
       new THREE.Box3(new THREE.Vector3(minX, 0, minZ), new THREE.Vector3(maxX, 3, maxZ)),
     );
 
-  // Cordón (no se baja a la calle), cerco de los jardines y los extremos de la cuadra.
+  // Cordón (no se baja a la calle) y los extremos de la cuadra.
   add(-80, sidewalk.nearZ - 1, 80, sidewalk.nearZ);
-  add(-80, sidewalk.farZ, 80, sidewalk.farZ + 1);
   add(walkableX.min - 1, sidewalk.nearZ, walkableX.min, sidewalk.farZ);
   add(walkableX.max, sidewalk.nearZ, walkableX.max + 1, sidewalk.farZ);
+
+  // Cerco de los jardines, abierto en el portón de la casa del estudiante.
+  const gateHalf = home.gateWidth / 2;
+  const fenceMaxZ = sidewalk.farZ + 0.12;
+  const gatePostHalf = 0.07; // los postes del portón son más gruesos que el cerco
+  add(-80, sidewalk.farZ, home.x - gateHalf + gatePostHalf, fenceMaxZ);
+  add(home.x + gateHalf - gatePostHalf, sidewalk.farZ, 80, fenceMaxZ);
+
+  // Jardín de la casa: cercos laterales y la fachada.
+  const lotMinX = home.x - home.lotHalfWidth;
+  const lotMaxX = home.x + home.lotHalfWidth;
+  add(lotMinX - 0.1, sidewalk.farZ, lotMinX, housesFrontZ);
+  add(lotMaxX, sidewalk.farZ, lotMaxX + 0.1, housesFrontZ);
+  add(lotMinX - 0.1, housesFrontZ, lotMaxX + 0.1, housesFrontZ + 1);
 
   const addPost = (x, z, half) => add(x - half, z - half, x + half, z + half);
   addPost(busStop.x, busStop.z, 0.06);

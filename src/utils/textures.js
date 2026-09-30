@@ -324,3 +324,61 @@ export function createBusDestinationTexture(linea = '18', destino = 'CIUDAD UNIV
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
+
+/**
+ * Interior de un colectivo lleno visto desde afuera: luz cálida y siluetas de gente
+ * apretada contra las ventanillas (tres filas: las de atrás más tenues), algunas
+ * agarradas del pasamanos. Se estira a lo largo de la franja de ventanillas.
+ */
+export function createBusCrowdTexture() {
+  const width = 1024;
+  const height = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  const light = ctx.createLinearGradient(0, 0, 0, height);
+  light.addColorStop(0, '#f2dfae');
+  light.addColorStop(1, '#c9ad76');
+  ctx.fillStyle = light;
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = 'rgba(110, 110, 110, 0.9)';
+  ctx.fillRect(0, 12, width, 4); // pasamanos
+
+  const rows = [
+    { count: 30, shade: 105, alpha: 0.55, scale: 0.75, baseY: 66 },
+    { count: 24, shade: 62, alpha: 0.8, scale: 0.95, baseY: 80 },
+    { count: 16, shade: 30, alpha: 0.95, scale: 1.25, baseY: 96 },
+  ];
+  for (const row of rows) {
+    for (let i = 0; i < row.count; i += 1) {
+      const x = Math.random() * width;
+      const s = row.scale * (0.85 + Math.random() * 0.3);
+      const shade = row.shade + Math.floor(Math.random() * 16);
+      ctx.fillStyle = `rgba(${shade}, ${shade - 6}, ${shade - 12}, ${row.alpha})`;
+      if (Math.random() < 0.35) {
+        ctx.fillRect(x + 12 * s, 14, 6 * s, row.baseY - 14); // brazo al pasamanos
+      }
+      ctx.beginPath();
+      ctx.ellipse(x, row.baseY + 42 * s, 34 * s, 32 * s, 0, 0, Math.PI * 2); // hombros
+      ctx.ellipse(x, row.baseY - 8 * s, 13 * s, 16 * s, 0, 0, Math.PI * 2); // cabeza
+      ctx.fill();
+    }
+  }
+
+  // Reflejos del vidrio mojado.
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 10;
+  for (let x = -60; x < width; x += 140 + Math.random() * 80) {
+    ctx.beginPath();
+    ctx.moveTo(x, height);
+    ctx.lineTo(x + 50, 0);
+    ctx.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  return texture;
+}

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { StateMachine } from '../../systems/StateMachine.js';
 import { createPlayerMovement } from '../../systems/PlayerMovement.js';
 import { config } from '../../config.js';
-import { playerStart } from './layout.js';
+import { playerStart, busStop, sidewalk, busStopArrivalDistance } from './layout.js';
 
 function parseTime(text) {
   const [hours, minutes] = text.split(':').map(Number);
@@ -16,9 +16,10 @@ function formatTime(totalMinutes) {
 }
 
 /**
- * Narrativa de la parada del colectivo: esperar bajo la lluvia (caminando por la
- * vereda, mirando el celular con R) hasta que llega el colectivo y subirse.
- * La hora del juego corre acelerada y las notificaciones llegan según esa hora.
+ * Narrativa de la parada del colectivo: sale de su casa, camina hasta la parada y
+ * espera bajo la lluvia. El primer colectivo viene lleno y no para; el segundo sí,
+ * y se sube con E. La hora del juego corre acelerada desde que sale de la casa y las
+ * notificaciones llegan al celular (R) según esa hora.
  */
 export function createBusStopNarrative({
   camera,
@@ -42,12 +43,8 @@ export function createBusStopNarrative({
 
   let lastShownTime = '';
 
-  function gameMinutes(ctx) {
-    return startMinutes + ctx.elapsed / parada.segundosPorMinuto;
-  }
-
   function updateClock(ctx) {
-    const minutes = gameMinutes(ctx);
+    const minutes = startMinutes + ctx.elapsed / parada.segundosPorMinuto;
     const text = formatTime(minutes);
     if (text !== lastShownTime) {
       lastShownTime = text;
@@ -58,14 +55,37 @@ export function createBusStopNarrative({
       received.push(item);
       overlay.setPhoneNotifications(received);
       audio.playVibration();
-      if (!overlay.isPhoneVisible)
+      if (!overlay.isPhoneVisible) {
         overlay.showToast(`📳 ${item.de}: nuevo mensaje · [R] ver celular`);
+      }
     }
   }
 
+  /** Texto narrativo que se va solo a los `seconds` segundos. */
+  function showTimedText(ctx, text, seconds = 3.5) {
+    overlay.showNarrativeText(text);
+    ctx.textHideAt = ctx.elapsed + seconds;
+  }
+
+  /** Caminar, pisar charcos e interactuar: lo que se puede hacer mientras va y espera. */
+  function explore(delta, ctx) {
+    ctx.moved = movement.update(delta);
+    interaction.update(delta * 1000);
+    if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
+    else overlay.hideHint();
+  }
+
+  function isAtBusStop() {
+    return (
+      Math.abs(camera.position.x - busStop.x) < busStopArrivalDistance &&
+      camera.position.z < sidewalk.farZ
+    );
+  }
+
   const states = {
-    WAITING: {
-      onEnter(ctx) {
+    // Sale por la puerta de su casa y camina hasta la parada.
+    GOING: {
+      onEnter() {
         camera.position.set(playerStart.x, config.player.alturaOjos, playerStart.z);
         camera.quaternion.setFromEuler(new THREE.Euler(0, playerStart.yaw, 0, 'YXZ'));
         camera.fov = config.player.fov;
@@ -73,25 +93,30 @@ export function createBusStopNarrative({
 
         overlay.hideFadeToBlack();
         overlay.setCrosshairVisible(true);
-        overlay.setObjective('Esperá el colectivo · [R] mirar el celular');
+        overlay.setObjective(`Caminá hasta la parada del ${parada.linea} · [R] mirar el celular`);
         input.setLookEnabled(true);
-        ctx.busAnnouncedAt = null;
       },
       onUpdate(delta, ctx) {
-        ctx.moved = movement.update(delta);
+        explore(delta, ctx);
+        if (isAtBusStop()) ctx.machine.transition('WAITING');
+      },
+    },
 
-        if (!traffic.bus.isComing && ctx.elapsed >= parada.colectivoApareceSegundos) {
-          traffic.spawnBus();
+    // En la parada: pasa el lleno, después llega el que para.
+    WAITING: {
+      onEnter(ctx) {
+        ctx.waited = 0;
+        ctx.nextBusAt = parada.primerColectivoSegundos;
+        ctx.nextBusFull = true;
+        overlay.setObjective('Esperá el colectivo · [R] mirar el celular');
+      },
+      onUpdate(delta, ctx) {
+        explore(delta, ctx);
+        ctx.waited += delta;
+        if (ctx.nextBusAt !== null && ctx.waited >= ctx.nextBusAt) {
+          traffic.spawnBus({ full: ctx.nextBusFull });
+          ctx.nextBusAt = null;
         }
-        // El cartel de "llegó" se va solo a los pocos segundos.
-        if (ctx.busAnnouncedAt !== null && ctx.elapsed - ctx.busAnnouncedAt > 3.5) {
-          overlay.hideNarrativeText();
-          ctx.busAnnouncedAt = null;
-        }
-
-        interaction.update(delta * 1000);
-        if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
-        else overlay.hideHint();
       },
       onExit() {
         overlay.hideHint();
@@ -124,26 +149,38 @@ export function createBusStopNarrative({
     },
   };
 
-  const context = { elapsed: 0, moved: 0 };
+  const context = { elapsed: 0, moved: 0, textHideAt: null };
   overlay.setPhoneBattery(parada.bateriaCelular);
   overlay.setPhoneNotifications(received);
   updateClock(context);
 
-  const machine = new StateMachine(states, 'WAITING', context);
+  const machine = new StateMachine(states, 'GOING', context);
   context.machine = machine;
 
-  traffic.bus.onArrived(() => {
+  traffic.bus.onEvent((event, { full }) => {
     if (machine.currentName !== 'WAITING') return;
-    overlay.showNarrativeText(`¡Llegó el ${parada.linea}!`);
-    overlay.setObjective('Subí al colectivo [E]');
-    context.busAnnouncedAt = context.elapsed;
+    const linea = parada.linea;
+    if (event === 'approaching') {
+      showTimedText(context, full ? `¡Ahí viene el ${linea}!` : `Ahí viene otro ${linea}…`, 3);
+    } else if (event === 'passed' && full) {
+      showTimedText(context, 'Viene lleno… ¡No para!', 3.5);
+      overlay.setObjective('Esperá el próximo · [R] mirar el celular');
+    } else if (event === 'gone' && full) {
+      context.nextBusAt = context.waited + parada.segundoColectivoSegundos;
+      context.nextBusFull = false;
+    } else if (event === 'arrived') {
+      showTimedText(context, `¡Llegó el ${linea}!`, 3.5);
+      overlay.setObjective('Subí al colectivo [E]');
+    }
   });
+
+  const isExploring = () => machine.currentName === 'GOING' || machine.currentName === 'WAITING';
 
   return {
     machine,
     /** E o click: interactuar con lo que está bajo la mira (la puerta del colectivo). */
     interact() {
-      if (machine.currentName === 'WAITING') interaction.triggerInteract();
+      if (isExploring()) interaction.triggerInteract();
     },
     board() {
       if (machine.currentName === 'WAITING' && traffic.bus.isStopped) {
@@ -151,13 +188,17 @@ export function createBusStopNarrative({
       }
     },
     togglePhone() {
-      if (machine.currentName === 'WAITING') overlay.setPhoneVisible(!overlay.isPhoneVisible);
+      if (isExploring()) overlay.setPhoneVisible(!overlay.isPhoneVisible);
     },
     update(delta) {
       context.moved = 0;
       if (machine.currentName !== 'END') {
         context.elapsed += delta;
         updateClock(context);
+      }
+      if (context.textHideAt !== null && context.elapsed >= context.textHideAt) {
+        overlay.hideNarrativeText();
+        context.textHideAt = null;
       }
       machine.update(delta);
       puddles.update(delta, context.moved);
