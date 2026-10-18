@@ -64,6 +64,37 @@ export function createFloorTexture() {
   return finalize(canvas, 4);
 }
 
+/**
+ * Mosaico granítico gris claro de edificio público: 2×2 baldosas por repetición, con
+ * granitos claros y oscuros y las juntas marcadas.
+ */
+export function createTileFloorTexture() {
+  const size = 256;
+  const canvas = makeCanvas(size);
+  const ctx = canvas.getContext('2d');
+  const tile = size / 2;
+  for (let row = 0; row < 2; row += 1) {
+    for (let col = 0; col < 2; col += 1) {
+      const base = 176 + ((row + col) % 2) * 8;
+      ctx.fillStyle = `rgb(${base}, ${base - 2}, ${base - 8})`;
+      ctx.fillRect(col * tile, row * tile, tile, tile);
+    }
+  }
+  for (let i = 0; i < 2600; i += 1) {
+    const dark = Math.random() < 0.6;
+    const v = Math.floor(dark ? 60 + Math.random() * 60 : 215 + Math.random() * 40);
+    ctx.fillStyle = `rgba(${v}, ${v}, ${v - 6}, ${0.35 + Math.random() * 0.4})`;
+    const s = 1 + Math.random() * 2;
+    ctx.fillRect(Math.random() * size, Math.random() * size, s, s);
+  }
+  ctx.fillStyle = 'rgba(70, 70, 66, 0.55)';
+  for (let i = 0; i < 2; i += 1) {
+    ctx.fillRect(i * tile, 0, 2, size);
+    ctx.fillRect(0, i * tile, size, 2);
+  }
+  return finalize(canvas, 1);
+}
+
 /** Madera clara para muebles (escritorio, mesa de luz). */
 export function createWoodTexture(colorBase = '#8a5a34') {
   const size = 128;

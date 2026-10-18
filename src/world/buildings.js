@@ -2,6 +2,31 @@ import * as THREE from 'three';
 import { paint, box, facadePlane } from './lowPoly.js';
 
 const FLOOR_HEIGHT = 2.8;
+const _vertex = new THREE.Vector3();
+
+/**
+ * Copa redonda facetada: icosaedro subdividido (80 caras) con los vértices corridos un
+ * poco hacia adentro o afuera, para que no parezca una esfera perfecta. Cada vértice se
+ * mueve según su posición, así las caras vecinas siguen unidas; las normales por cara
+ * mantienen el estilo low-poly.
+ */
+function lowPolyCrown(radius, seed) {
+  const geo = new THREE.IcosahedronGeometry(radius, 1);
+  const position = geo.attributes.position;
+  for (let i = 0; i < position.count; i += 1) {
+    _vertex.fromBufferAttribute(position, i);
+    // Redondeado al milímetro: el mismo vértice calculado por dos caras puede diferir en
+    // los últimos decimales, y sin esto se correrían distinto y se abriría una grieta.
+    const qx = Math.round(_vertex.x * 1000);
+    const qy = Math.round(_vertex.y * 1000);
+    const qz = Math.round(_vertex.z * 1000);
+    const n = Math.sin(qx * 12.99 + qy * 78.23 + qz * 37.72 + seed) * 43758.5;
+    _vertex.multiplyScalar(1 + (n - Math.floor(n) - 0.5) * 0.24);
+    position.setXYZ(i, _vertex.x, _vertex.y, _vertex.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
 
 /**
  * Casa con techo a cuatro aguas y ventanas en la fachada (algunas encendidas, porque
@@ -48,16 +73,16 @@ export function addHouse(
 export function addTree(parts, { x, z, type, scale, groundY = 0 }) {
   const s = scale;
   const trunkHeight = 1.4 * s;
-  const trunk = new THREE.CylinderGeometry(0.12 * s, 0.16 * s, trunkHeight, 6);
+  const trunk = new THREE.CylinderGeometry(0.12 * s, 0.16 * s, trunkHeight, 10);
   trunk.translate(x, groundY + trunkHeight / 2, z);
   parts.push(paint(trunk, 0x3d3128));
 
   let foliage;
   if (type === 'pine') {
-    foliage = new THREE.ConeGeometry(1.1 * s, 2.8 * s, 7);
+    foliage = new THREE.ConeGeometry(1.1 * s, 2.8 * s, 12);
     foliage.translate(x, groundY + trunkHeight + 1.2 * s, z);
   } else {
-    foliage = new THREE.IcosahedronGeometry(1.3 * s, 0);
+    foliage = lowPolyCrown(1.3 * s, x * 3.1 + z * 1.7);
     foliage.scale(1, 0.9, 1);
     foliage.translate(x, groundY + trunkHeight + 0.9 * s, z);
   }
@@ -66,7 +91,7 @@ export function addTree(parts, { x, z, type, scale, groundY = 0 }) {
 
 /** Farol de calle con la lámpara prendida. El brazo apunta hacia `armDirZ` (±1). */
 export function addLampPost(parts, { x, z, groundY = 0, armDirZ = -1 }) {
-  const post = new THREE.CylinderGeometry(0.06, 0.08, 4.2, 6);
+  const post = new THREE.CylinderGeometry(0.06, 0.08, 4.2, 12);
   post.translate(x, groundY + 2.1, z);
   parts.push(paint(post, 0x2c3035));
   parts.push(paint(box(0.06, 0.06, 0.9, x, groundY + 4.15, z + armDirZ * 0.42), 0x2c3035));

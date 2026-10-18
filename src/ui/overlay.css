@@ -35,29 +35,162 @@ body {
 .start-screen {
   position: absolute;
   inset: 0;
-  background: #050505;
+  background: radial-gradient(ellipse at 50% 28%, #1c2433 0%, #0b0d12 55%, #050506 100%);
   color: #eee;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.25rem;
   pointer-events: auto;
   text-align: center;
-  padding: 2rem;
+  padding: 2rem 1rem;
+  overflow: hidden;
+}
+
+/* Lluvia de fondo: trazos finos en dos capas que caen a distinta velocidad. */
+.start-screen::before,
+.start-screen::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  transform: rotate(8deg);
+  pointer-events: none;
+}
+
+.start-screen::before {
+  background-image: radial-gradient(1px 14px at 50% 50%, rgba(190, 210, 230, 0.32), transparent);
+  background-size: 53px 97px;
+  animation: start-rain-near 0.55s linear infinite;
+}
+
+.start-screen::after {
+  background-image: radial-gradient(1px 20px at 50% 50%, rgba(190, 210, 230, 0.18), transparent);
+  background-size: 89px 151px;
+  background-position: 21px 0;
+  animation: start-rain-far 0.9s linear infinite;
+}
+
+@keyframes start-rain-near {
+  to {
+    background-position: 0 97px;
+  }
+}
+
+@keyframes start-rain-far {
+  to {
+    background-position: 21px 151px;
+  }
+}
+
+.start-card {
+  position: relative;
+  z-index: 1;
+  max-width: 36rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.start-kicker {
+  color: #d6b16b;
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
 }
 
 .start-screen h1 {
-  font-size: 1.8rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: clamp(2.1rem, 6vw, 3.3rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
 }
 
-.start-screen p {
-  max-width: 32rem;
-  line-height: 1.5;
+.start-intro {
+  max-width: 30rem;
   color: #bbb;
-  font-size: 0.95rem;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.start-controls {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 1.6rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ccc;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.start-controls li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.start-controls li.wide {
+  grid-column: 1 / -1;
+}
+
+.start-controls .keys {
+  display: inline-flex;
+  flex: none;
+  gap: 0.2rem;
+  min-width: 6.4rem;
+}
+
+.start-screen kbd {
+  padding: 0.1rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+.start-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.start-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--stat-color) 14%, transparent);
+  color: var(--stat-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.start-stats .stat-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.start-stats-help {
+  margin-top: -0.4rem;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 480px) {
+  .start-controls {
+    grid-template-columns: 1fr;
+  }
 }
 
 .start-screen button {
@@ -439,7 +572,7 @@ body {
   font-family: inherit;
 }
 
-/* ---------- Fundido final ---------- */
+/* ---------- Fundido entre escenas / final ---------- */
 .fade-to-black {
   position: absolute;
   inset: 0;
@@ -447,8 +580,10 @@ body {
   opacity: 0;
   transition: opacity 1.6s ease;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.1rem;
 }
 
 .fade-to-black.visible {
@@ -456,7 +591,7 @@ body {
   pointer-events: auto;
 }
 
-.fade-to-black span {
+.fade-text {
   color: #eee;
   font-size: 1.3rem;
   letter-spacing: 0.05em;
@@ -464,8 +599,476 @@ body {
   transition: opacity 1s ease 1s;
 }
 
-.fade-to-black.visible span {
+.fade-to-black.visible .fade-text {
   opacity: 1;
+}
+
+/* Cómo cambiaron los stats en la escena que termina. */
+.fade-report {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.7s ease 1.5s,
+    transform 0.7s ease 1.5s;
+}
+
+.fade-to-black.visible .fade-report {
+  opacity: 1;
+  transform: none;
+}
+
+.fade-report .stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.fade-report .stat-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* ---------- Colores de cada stat ---------- */
+[data-stat='estres'] {
+  --stat-color: #ff7b6b;
+}
+
+[data-stat='mojado'] {
+  --stat-color: #6cbcff;
+}
+
+[data-stat='preparacion'] {
+  --stat-color: #ecc97f;
+}
+
+.stat-icon {
+  fill: currentColor;
+  flex: none;
+}
+
+.stat-chip {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--stat-color) 20%, transparent);
+  color: var(--stat-color);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- HUD de stats (arriba a la derecha) ---------- */
+.stats-hud {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 15.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  opacity: 0;
+  transform: translateX(8px);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.stats-hud.visible {
+  opacity: 1;
+  transform: none;
+}
+
+.stats-panel {
+  --glow: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(24, 27, 34, 0.74), rgba(10, 11, 14, 0.64));
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.35),
+    0 0 calc(4px + var(--glow) * 24px) rgba(235, 70, 60, calc(var(--glow) * 0.7));
+  backdrop-filter: blur(6px);
+  color: #f2f2f2;
+}
+
+.stat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-head .stat-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--stat-color);
+}
+
+.stat-value {
+  display: inline-block;
+  margin-left: auto;
+  color: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.stat-track {
+  position: relative;
+  height: 6px;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.stat-fill,
+.stat-ghost {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.stat-fill {
+  background-color: var(--stat-color);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 65%);
+}
+
+.stat-ghost {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* El estrés es el principal: más grande y con marcas cada 25 %. */
+.stat[data-stat='estres'] .stat-head {
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.stat[data-stat='estres'] .stat-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.stat[data-stat='estres'] .stat-track {
+  height: 10px;
+}
+
+.stat[data-stat='estres'] .stat-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(25% - 1px),
+    rgba(0, 0, 0, 0.45) calc(25% - 1px) 25%
+  );
+}
+
+.stat.bump .stat-track {
+  animation: stat-bump 0.55s ease-out;
+}
+
+.stat.bump .stat-value {
+  animation: stat-value-bump 0.45s ease-out;
+}
+
+@keyframes stat-bump {
+  from {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.75);
+  }
+  to {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes stat-value-bump {
+  35% {
+    transform: scale(1.25);
+  }
+}
+
+/* Aviso / indicador de respirar hondo. */
+.stats-breath {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.72rem;
+}
+
+.stats-breath.hint,
+.stats-breath.active {
+  display: flex;
+}
+
+.stats-breath.active {
+  color: #bdf0e6;
+}
+
+.stats-breath kbd {
+  padding: 0 0.3em;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
+  font-family: inherit;
+}
+
+.breath-ring {
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #8fd3c7;
+  border-radius: 50%;
+}
+
+.stats-breath.active .breath-ring {
+  background: rgba(143, 211, 199, 0.35);
+  animation: breath 4s ease-in-out infinite;
+}
+
+@keyframes breath {
+  0%,
+  100% {
+    transform: scale(0.7);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+/* Eventos que cambiaron los stats, debajo del panel. */
+.stats-feed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  /* Más ancho que el panel (crece hacia la izquierda) para que cada evento entre en una línea. */
+  width: 24rem;
+}
+
+.feed-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 20rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(12, 13, 16, 0.72);
+  color: #f0f0f0;
+  font-size: 0.78rem;
+  animation:
+    feed-in 0.3s ease-out,
+    feed-out 0.6s ease-in 3.6s forwards;
+}
+
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes feed-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* ---------- Resumen final del día ---------- */
+.day-summary {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+  background: radial-gradient(ellipse at 50% 0%, #1e2430, #000 70%);
+  color: #eee;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 1.2s ease,
+    visibility 1.2s;
+}
+
+.day-summary.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: min(34rem, 100%);
+  margin: auto;
+  transform: translateY(14px);
+  transition: transform 1.2s ease;
+}
+
+.day-summary.visible .summary-card {
+  transform: none;
+}
+
+.summary-kicker {
+  color: #d6b16b;
+  font-size: 0.75rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.summary-card h2 {
+  font-size: 1.9rem;
+  font-weight: 600;
+}
+
+.summary-arrival {
+  color: #aaa;
+}
+
+.summary-arrival strong {
+  color: #fff;
+}
+
+.summary-stats {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.summary-stat {
+  display: grid;
+  grid-template-columns: 1.1rem 6.5rem 1fr 2.8rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.summary-stat .stat-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--stat-color);
+}
+
+.summary-stat .stat-track {
+  height: 8px;
+  margin-top: 0;
+}
+
+.summary-stat .stat-fill {
+  transition: transform 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.5s;
+}
+
+.summary-stat-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.summary-verdict {
+  color: #ddd;
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.summary-chance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(214, 177, 107, 0.35);
+  border-radius: 12px;
+  background: rgba(214, 177, 107, 0.1);
+}
+
+.summary-chance strong {
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-chance strong[data-level='alta'] {
+  color: #7fd99a;
+}
+
+.summary-chance strong[data-level='media'] {
+  color: #ecc97f;
+}
+
+.summary-chance strong[data-level='baja'] {
+  color: #ff7b6b;
+}
+
+.summary-card h3 {
+  margin-top: 0.3rem;
+  color: #999;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.summary-moments {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.summary-moments li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+}
+
+.moment-scene {
+  min-width: 6.8rem;
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.summary-card button {
+  align-self: center;
+  margin-top: 0.6rem;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  background: #d6b16b;
+  color: #1a1a1a;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.summary-card button:hover {
+  transform: scale(1.04);
 }
 
 /* ---------- Debug panel (stats.js se posiciona solo) ---------- */

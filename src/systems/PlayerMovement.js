@@ -5,8 +5,14 @@ import { config } from '../config.js';
  * Caminar en primera persona con WASD/flechas, relativo a hacia dónde mira la cámara
  * y resuelto contra las colisiones de la escena. Compartido por todas las escenas.
  * `update` devuelve la distancia horizontal recorrida en ese frame.
+ * `speed` (m/s) permite caminar más lento en alguna escena (por ejemplo, apretado).
  */
-export function createPlayerMovement({ camera, input, collision }) {
+export function createPlayerMovement({
+  camera,
+  input,
+  collision,
+  speed = config.player.velocidadCaminar,
+}) {
   // Reutilizados en cada frame para no asignar memoria en el loop.
   const forward = new THREE.Vector3();
   const right = new THREE.Vector3();
@@ -22,7 +28,7 @@ export function createPlayerMovement({ camera, input, collision }) {
 
     let dx = 0;
     let dz = 0;
-    const step = config.player.velocidadCaminar * delta;
+    const step = speed * delta;
     if (move.forward) {
       dx += forward.x * step;
       dz += forward.z * step;

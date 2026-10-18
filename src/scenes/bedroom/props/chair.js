@@ -42,7 +42,7 @@ export function buildChair(buckets, obstacles) {
   buckets.addIcosahedron(
     'fabricClothes',
     0.18,
-    1,
+    2,
     center.x,
     seatHeight + backHeight * 0.75,
     center.z - seatSize / 2 - 0.05,

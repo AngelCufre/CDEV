@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
 import { createOvercastSkyTexture } from '../utils/textures.js';
+import { NO_REFLECTION_LAYER } from './wetReflection.js';
 
 /** Cielo nublado en una esfera vista desde adentro. No lleva niebla: ya trae el degradé. */
 export function buildSky(radius) {
@@ -23,10 +24,13 @@ export function buildSky(radius) {
  * - `zBias` > 1 concentra más gotas hacia `maxZ` (por ejemplo, cerca de una ventana).
  * - Si `update` recibe un `center`, el área se toma relativa a ese punto en X/Z: sirve
  *   para que la lluvia acompañe al jugador en exteriores sin cubrir todo el mapa.
+ * - `setWind(v)` cambia el desplazamiento lateral (m/s en X). Desde un vehículo en
+ *   movimiento, la lluvia "viaja" hacia atrás a la velocidad del vehículo.
  */
 export function buildRain({ count = config.exterior.lluvia.cantidadGotas, area, zBias = 1 }) {
-  const { velocidad, largoGota, viento } = config.exterior.lluvia;
-  const tailDx = (-viento / velocidad) * largoGota;
+  const { velocidad, largoGota } = config.exterior.lluvia;
+  let viento = config.exterior.lluvia.viento;
+  let tailDx = (-viento / velocidad) * largoGota;
 
   const drops = new Float32Array(count * 4); // x, y, z, factor de velocidad
   const positions = new Float32Array(count * 6);
@@ -58,6 +62,8 @@ export function buildRain({ count = config.exterior.lluvia.cantidadGotas, area, 
   // Se dibuja antes que otros transparentes (como el vidrio de la ventana): el orden por
   // distancia usa el origen del objeto, que no representa dónde están las gotas.
   rain.renderOrder = -1;
+  // En los reflejos del piso mojado la lluvia solo agregaría ruido.
+  rain.layers.set(NO_REFLECTION_LAYER);
 
   function update(delta, center) {
     const following = center !== undefined;
@@ -90,5 +96,10 @@ export function buildRain({ count = config.exterior.lluvia.cantidadGotas, area, 
   }
   update(0);
 
-  return { mesh: rain, update };
+  function setWind(value) {
+    viento = value;
+    tailDx = (-viento / velocidad) * largoGota;
+  }
+
+  return { mesh: rain, update, setWind };
 }

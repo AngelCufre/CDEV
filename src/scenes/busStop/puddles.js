@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { NO_REFLECTION_LAYER } from '../../world/wetReflection.js';
 import { puddles as PUDDLES } from './layout.js';
 
 const RIPPLE_COUNT = 18;
@@ -28,26 +30,38 @@ function createDropletTexture() {
   return new THREE.CanvasTexture(canvas);
 }
 
-export function createPuddles({ audio, camera }) {
+/**
+ * `reflection` es el reflejo del plano de la vereda: los charcos son casi un espejo
+ * (agua quieta, más que la vereda mojada).
+ */
+export function createPuddles({ audio, camera, reflection }) {
   const group = new THREE.Group();
   group.name = 'puddles';
 
-  // Agua oscura que refleja un poco el cielo gris. polygonOffset evita z-fighting con
-  // la vereda, que está apenas debajo.
-  const puddleMaterial = new THREE.MeshBasicMaterial({
+  // Todos los charcos en un solo mesh. polygonOffset evita z-fighting con la vereda, que
+  // está apenas debajo.
+  const shapes = PUDDLES.map((puddle) => {
+    const geometry = new THREE.CircleGeometry(1, 40);
+    geometry.rotateX(-Math.PI / 2);
+    geometry.scale(puddle.rx, 1, puddle.rz);
+    geometry.translate(puddle.x, 0.004, puddle.z);
+    return geometry;
+  });
+  const puddleGeometry = mergeGeometries(shapes);
+  for (const geometry of shapes) geometry.dispose();
+  const water = reflection.createSurface(puddleGeometry, {
     color: 0x58626b,
+    reflectivity: 0.92,
+    minReflect: 0.3,
+    darken: 0.85,
+    streak: 0.015,
+    distortion: 0.006,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
   });
-  const puddleGeometry = new THREE.CircleGeometry(1, 28);
-  puddleGeometry.rotateX(-Math.PI / 2);
-  for (const puddle of PUDDLES) {
-    const mesh = new THREE.Mesh(puddleGeometry, puddleMaterial);
-    mesh.scale.set(puddle.rx, 1, puddle.rz);
-    mesh.position.set(puddle.x, 0.004, puddle.z);
-    group.add(mesh);
-  }
+  water.name = 'puddle-water';
+  group.add(water);
 
   // ---------- Anillos de las gotas que caen ----------
   const ringGeometry = new THREE.RingGeometry(0.8, 1, 20);
@@ -62,6 +76,7 @@ export function createPuddles({ audio, camera }) {
     });
     const mesh = new THREE.Mesh(ringGeometry, material);
     mesh.position.y = 0.008;
+    mesh.layers.set(NO_REFLECTION_LAYER);
     group.add(mesh);
     ripples.push({ mesh, age: Math.random(), life: 1, maxScale: 0.1 });
   }
@@ -112,6 +127,7 @@ export function createPuddles({ audio, camera }) {
   });
   const droplets = new THREE.Points(dropletGeometry, dropletMaterial);
   droplets.frustumCulled = false;
+  droplets.layers.set(NO_REFLECTION_LAYER);
   group.add(droplets);
   let splashAge = Infinity;
   const SPLASH_LIFE = 0.7;
@@ -179,7 +195,8 @@ export function createPuddles({ audio, camera }) {
 
   /**
    * `moved` es la distancia que caminó el jugador en este frame: salpica al entrar a
-   * un charco caminando y después a cada paso mientras siga adentro.
+   * un charco caminando y después a cada paso mientras siga adentro. Devuelve 'entered'
+   * o 'step' si salpicó en este frame (null si no).
    */
   function update(delta, moved) {
     for (const ripple of ripples) updateRipple(ripple, delta, true);
@@ -188,15 +205,18 @@ export function createPuddles({ audio, camera }) {
 
     const { x, z } = camera.position;
     const inside = puddleAt(x, z) !== null;
+    let splashed = null;
     if (inside && moved > 0) {
       walkedInside += moved;
       if (!wasInside || walkedInside >= STEP_LENGTH) {
+        splashed = wasInside ? 'step' : 'entered';
         walkedInside = 0;
         splash(x, z);
       }
     }
     if (!inside) walkedInside = 0;
     wasInside = inside;
+    return splashed;
   }
 
   return { group, update };

@@ -3,6 +3,7 @@
  *
  * Toma automáticamente las imágenes de src/assets/apuntes/ (png, jpg, jpeg, webp),
  * ordenadas por nombre de archivo: "01-resumen.jpg", "02-ejercicios.jpg", etc.
+ * Antes de las imágenes va una carátula escrita a mano con lo que hay que repasar.
  * Si la carpeta está vacía, genera hojas de ejemplo dibujadas con Canvas2D.
  *
  * Cada página es { url }: sirve tanto para la textura de la hoja en 3D como para
@@ -19,11 +20,13 @@ export function loadNotesPages() {
   const paths = Object.keys(imageModules).sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true }),
   );
-  if (paths.length > 0) return paths.map((path) => ({ url: imageModules[path] }));
+  if (paths.length > 0) {
+    return [createCoverPage(), ...paths.map((path) => ({ url: imageModules[path] }))];
+  }
   return createPlaceholderPages();
 }
 
-// ---------- Hojas de ejemplo ----------
+// ---------- Hojas escritas a mano ----------
 
 const PAGE_WIDTH = 800;
 const PAGE_HEIGHT = 1131; // proporción A4
@@ -33,6 +36,15 @@ const MARGIN_X = 110;
 const HANDWRITING = '"Segoe Print", "Bradley Hand", "Comic Sans MS", cursive';
 const INK_BLUE = '#1f2d73';
 const INK_RED = '#b3261e';
+
+const COVER_CONTENT = [
+  { type: 'title', text: 'Último repaso' },
+  { type: 'text', text: 'antes del parcial' },
+  { type: 'blank' },
+  { type: 'text', text: '• Máquina de estado' },
+  { type: 'text', text: '• Diagrama de clases' },
+  { type: 'text', text: '• Diagrama de secuencia' },
+];
 
 const PLACEHOLDER_CONTENT = [
   [
@@ -78,20 +90,31 @@ const PLACEHOLDER_CONTENT = [
   ],
 ];
 
+/** Carátula que va antes de los diagramas: lo que hay que repasar a último momento. */
+function createCoverPage() {
+  const canvas = createHandwrittenSheet(COVER_CONTENT);
+  return { url: canvas.toDataURL('image/jpeg', 0.9) };
+}
+
 function createPlaceholderPages() {
   return PLACEHOLDER_CONTENT.map((lines, index) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = PAGE_WIDTH;
-    canvas.height = PAGE_HEIGHT;
+    const canvas = createHandwrittenSheet(lines);
     const ctx = canvas.getContext('2d');
-    drawRuledSheet(ctx);
-    lines.forEach((line, lineIndex) =>
-      drawLine(ctx, line, FIRST_LINE_Y + lineIndex * LINE_GAP * 2),
-    );
     if (index === 1) drawCoffeeStain(ctx, 590, 880);
     drawPageNumber(ctx, index + 1);
     return { url: canvas.toDataURL('image/jpeg', 0.9) };
   });
+}
+
+/** Hoja de carpeta rayada con los renglones escritos a mano. */
+function createHandwrittenSheet(lines) {
+  const canvas = document.createElement('canvas');
+  canvas.width = PAGE_WIDTH;
+  canvas.height = PAGE_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  drawRuledSheet(ctx);
+  lines.forEach((line, lineIndex) => drawLine(ctx, line, FIRST_LINE_Y + lineIndex * LINE_GAP * 2));
+  return canvas;
 }
 
 /** Hoja de carpeta rayada: renglones celestes, margen rojo y agujeros a la izquierda. */

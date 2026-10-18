@@ -1,65 +1,45 @@
 import * as THREE from 'three';
 import { StateMachine } from '../../systems/StateMachine.js';
 import { createPlayerMovement } from '../../systems/PlayerMovement.js';
+import { createPhoneClock, parseTime } from '../../systems/PhoneClock.js';
+import { gameState } from '../../core/gameState.js';
 import { config } from '../../config.js';
 import { playerStart, busStop, sidewalk, busStopArrivalDistance } from './layout.js';
-
-function parseTime(text) {
-  const [hours, minutes] = text.split(':').map(Number);
-  return hours * 60 + minutes;
-}
-
-function formatTime(totalMinutes) {
-  const hours = Math.floor(totalMinutes / 60) % 24;
-  const minutes = Math.floor(totalMinutes % 60);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
 
 /**
  * Narrativa de la parada del colectivo: sale de su casa, camina hasta la parada y
  * espera bajo la lluvia. El primer colectivo viene lleno y no para; el segundo sí,
- * y se sube con E. La hora del juego corre acelerada desde que sale de la casa y las
- * notificaciones llegan al celular (R) según esa hora.
+ * y se sube con E (pasa a la escena 3, arriba del colectivo). La hora del juego corre
+ * acelerada desde que sale de la casa y las notificaciones llegan al celular (R).
  */
 export function createBusStopNarrative({
   camera,
   overlay,
   audio,
   input,
+  stats,
   interaction,
   collision,
   puddles,
   traffic,
+  onBoarded,
 }) {
   const parada = config.parada;
   const movement = createPlayerMovement({ camera, input, collision });
-  const startMinutes = parseTime(parada.horaInicio);
+  // Última posición en X de cada vehículo, para saber cuándo pasa a la altura del jugador.
+  const vehicleLastX = new WeakMap();
 
   // Lo que ya estaba en el celular desde la habitación, más lo que va llegando.
-  const received = parada.notificacionesPrevias.map((item) => ({ ...item }));
-  const pending = parada.notificaciones
-    .map((item) => ({ ...item, minuto: parseTime(item.hora) }))
-    .sort((a, b) => a.minuto - b.minuto);
-
-  let lastShownTime = '';
-
-  function updateClock(ctx) {
-    const minutes = startMinutes + ctx.elapsed / parada.segundosPorMinuto;
-    const text = formatTime(minutes);
-    if (text !== lastShownTime) {
-      lastShownTime = text;
-      overlay.setPhoneTime(text);
-    }
-    while (pending.length > 0 && pending[0].minuto <= minutes) {
-      const item = pending.shift();
-      received.push(item);
-      overlay.setPhoneNotifications(received);
-      audio.playVibration();
-      if (!overlay.isPhoneVisible) {
-        overlay.showToast(`📳 ${item.de}: nuevo mensaje · [R] ver celular`);
-      }
-    }
-  }
+  const phone = createPhoneClock({
+    overlay,
+    audio,
+    startMinutes: parseTime(parada.horaInicio),
+    received: parada.notificacionesPrevias,
+    incoming: parada.notificaciones,
+    secondsPerMinute: parada.segundosPorMinuto,
+    battery: parada.bateriaCelular,
+    onReceive: (item) => stats.message(item.de),
+  });
 
   /** Texto narrativo que se va solo a los `seconds` segundos. */
   function showTimedText(ctx, text, seconds = 3.5) {
@@ -73,6 +53,33 @@ export function createBusStopNarrative({
     interaction.update(delta * 1000);
     if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
     else overlay.hideHint();
+  }
+
+  /**
+   * Un auto (o el colectivo lleno) que pasa por el carril de la vereda te salpica si
+   * estás cerca del cordón: se detecta cuando cruza la X del jugador. Después hay un
+   * rato de gracia para que no te empape cada auto.
+   */
+  function updateVehicleSplashes(ctx) {
+    const { distanciaCordon, velocidadMinima, esperaSegundos } = config.stats.salpicadura;
+    const playerX = camera.position.x;
+    const nearCurb = camera.position.z < sidewalk.nearZ + distanciaCordon;
+    traffic.forEachNearCurbVehicle((object, speed, isBus) => {
+      const x = object.position.x;
+      const lastX = vehicleLastX.get(object);
+      vehicleLastX.set(object, x);
+      // Sin posición anterior, o recién reaparecido en la otra punta de la calle.
+      if (lastX === undefined || Math.abs(x - lastX) > 2) return;
+      const crossed = lastX < playerX && x >= playerX;
+      if (!crossed || !nearCurb || speed < velocidadMinima) return;
+      if (ctx.elapsed < ctx.splashGraceUntil) return;
+      ctx.splashGraceUntil = ctx.elapsed + esperaSegundos;
+      audio.playSplash(2);
+      stats.trigger(isBus ? 'salpicadaColectivo' : 'salpicadaAuto');
+      if (ctx.textHideAt === null) {
+        showTimedText(ctx, isBus ? '¡Encima te empapó!' : '¡Splash! Alejate del cordón…', 2.5);
+      }
+    });
   }
 
   function isAtBusStop() {
@@ -125,34 +132,32 @@ export function createBusStopNarrative({
       },
     },
 
-    // Subió al colectivo: fundido y fin de la escena.
+    // Subió al colectivo: fundido y pasa a la escena 3 con la hora y el celular como
+    // quedaron.
     BOARDING: {
       onEnter(ctx) {
         ctx.timer = 0;
+        ctx.left = false;
         input.setLookEnabled(false);
         overlay.setPhoneVisible(false);
         overlay.hideToast();
         overlay.setObjective(null);
-        overlay.showFadeToBlack('Continuará…');
+        overlay.showFadeToBlack(config.viaje.textoFundidoEntrada, stats.sceneDeltas());
+        gameState.clockMinutes = phone.minutes;
+        gameState.phoneNotifications = phone.notifications;
       },
       onUpdate(delta, ctx) {
         ctx.timer += delta;
-        if (ctx.timer >= 2.5) ctx.machine.transition('END');
-      },
-    },
-
-    END: {
-      onEnter() {
-        traffic.stopSounds();
-        audio.stopAll();
+        if (!ctx.left && ctx.timer >= 2.5) {
+          ctx.left = true;
+          traffic.stopSounds();
+          onBoarded();
+        }
       },
     },
   };
 
-  const context = { elapsed: 0, moved: 0, textHideAt: null };
-  overlay.setPhoneBattery(parada.bateriaCelular);
-  overlay.setPhoneNotifications(received);
-  updateClock(context);
+  const context = { elapsed: 0, moved: 0, textHideAt: null, splashGraceUntil: 0 };
 
   const machine = new StateMachine(states, 'GOING', context);
   context.machine = machine;
@@ -165,12 +170,14 @@ export function createBusStopNarrative({
     } else if (event === 'passed' && full) {
       showTimedText(context, 'Viene lleno… ¡No para!', 3.5);
       overlay.setObjective('Esperá el próximo · [R] mirar el celular');
+      stats.trigger('colectivoLleno');
     } else if (event === 'gone' && full) {
       context.nextBusAt = context.waited + parada.segundoColectivoSegundos;
       context.nextBusFull = false;
     } else if (event === 'arrived') {
       showTimedText(context, `¡Llegó el ${linea}!`, 3.5);
       overlay.setObjective('Subí al colectivo [E]');
+      stats.trigger('llegoColectivo');
     }
   });
 
@@ -192,16 +199,24 @@ export function createBusStopNarrative({
     },
     update(delta) {
       context.moved = 0;
-      if (machine.currentName !== 'END') {
-        context.elapsed += delta;
-        updateClock(context);
-      }
+      context.elapsed += delta;
+      if (machine.currentName !== 'BOARDING') phone.update(delta);
       if (context.textHideAt !== null && context.elapsed >= context.textHideAt) {
         overlay.hideNarrativeText();
         context.textHideAt = null;
       }
       machine.update(delta);
-      puddles.update(delta, context.moved);
+
+      const splashed = puddles.update(delta, context.moved);
+      if (splashed === 'entered') stats.trigger('charco');
+      else if (splashed === 'step') stats.add({ mojado: config.stats.mojadoPorPisada });
+
+      // Afuera, sin techo ni paraguas: se moja y se pone nervioso por la hora.
+      if (isExploring()) {
+        stats.drift('mojado', config.stats.lluviaMojadoPorSegundo, delta);
+        stats.addLatenessStress(phone.minutes, delta);
+        updateVehicleSplashes(context);
+      }
     },
   };
 }

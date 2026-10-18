@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 /**
  * Utilidades para exteriores low-poly con sombreado "horneado" en vertex colors.
@@ -21,6 +22,9 @@ const _normal = new THREE.Vector3();
 export function paint(geometry, hex, { shaded = true } = {}) {
   const geo = geometry.index ? geometry.toNonIndexed() : geometry;
   if (geo !== geometry) geometry.dispose();
+  // Sin texturas: las UV no se usan, y así todas las piezas tienen los mismos atributos
+  // para fusionarse (algunas, como las de `taperTop`, no las traen).
+  if (geo.attributes.uv) geo.deleteAttribute('uv');
 
   const normals = geo.attributes.normal;
   const colors = new Float32Array(normals.count * 3);
@@ -42,12 +46,59 @@ export function box(w, h, d, x, y, z) {
   return geo;
 }
 
+/**
+ * Caja con los bordes redondeados (`radius` en metros; se achica si no entra). Los
+ * biseles toman luz como en un objeto real: se usa en gente, muebles y vehículos, no en
+ * paredes ni edificios. `segments` = pasos de cada curva (1 alcanza para piezas chicas).
+ */
+export function roundedBox(w, h, d, x, y, z, radius = 0.03, segments = 2) {
+  const safeRadius = Math.min(radius, Math.min(w, h, d) * 0.45);
+  const geo = new RoundedBoxGeometry(w, h, d, segments, safeRadius);
+  geo.translate(x, y, z);
+  return geo;
+}
+
+/**
+ * Achica la parte de arriba de una caja redondeada (por encima de `fromY`) hacia su
+ * centro en X/Z: queda un tronco de pirámide, como la cabina de un auto con el parabrisas
+ * inclinado. Devuelve una geometría nueva con las normales recalculadas (suaves, para que
+ * los biseles sigan redondeados y la pendiente reciba la luz que le corresponde).
+ */
+export function taperTop(geometry, fromY, scaleX, scaleZ) {
+  const position = geometry.attributes.position;
+  geometry.computeBoundingBox();
+  const { min, max } = geometry.boundingBox;
+  const centerX = (min.x + max.x) / 2;
+  const centerZ = (min.z + max.z) / 2;
+  for (let i = 0; i < position.count; i += 1) {
+    const y = position.getY(i);
+    if (y <= fromY) continue;
+    const t = (y - fromY) / (max.y - fromY);
+    position.setX(i, centerX + (position.getX(i) - centerX) * (1 + (scaleX - 1) * t));
+    position.setZ(i, centerZ + (position.getZ(i) - centerZ) * (1 + (scaleZ - 1) * t));
+  }
+  // Se unen los vértices repetidos (solo por posición) para promediar las normales.
+  geometry.deleteAttribute('uv');
+  geometry.deleteAttribute('normal');
+  const smooth = mergeVertices(geometry);
+  geometry.dispose();
+  smooth.computeVertexNormals();
+  return smooth;
+}
+
 /** Plano vertical mirando a +z (`facing = 1`) o a -z (`facing = -1`). */
 export function facadePlane(w, h, x, y, z, facing = 1) {
   const geo = new THREE.PlaneGeometry(w, h);
   if (facing < 0) geo.rotateY(Math.PI);
   geo.translate(x, y, z);
   return geo;
+}
+
+/** Fusiona geometrías pintadas con `paint` en una sola (y libera las originales). */
+export function mergePartsGeometry(parts) {
+  const merged = mergeGeometries(parts);
+  for (const geo of parts) geo.dispose();
+  return merged;
 }
 
 /**
@@ -59,9 +110,7 @@ export function mergeParts(
   name,
   material = new THREE.MeshBasicMaterial({ vertexColors: true }),
 ) {
-  const merged = mergeGeometries(parts);
-  for (const geo of parts) geo.dispose();
-  const mesh = new THREE.Mesh(merged, material);
+  const mesh = new THREE.Mesh(mergePartsGeometry(parts), material);
   mesh.name = name;
   return mesh;
 }

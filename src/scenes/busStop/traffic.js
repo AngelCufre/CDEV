@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { createBusDestinationTexture, createBusCrowdTexture } from '../../utils/textures.js';
-import { paint, box, facadePlane, mergeParts } from '../../world/lowPoly.js';
+import { paint, box, roundedBox, facadePlane, mergeParts } from '../../world/lowPoly.js';
+import {
+  CAR_COLORS,
+  createBeamResources,
+  addBeams,
+  addTailGlows,
+  addWheels,
+  buildCar,
+} from '../../world/vehicles.js';
 import { street, busStop } from './layout.js';
 
 /**
@@ -18,7 +26,6 @@ const SPAWN_X = 75;
 const DESPAWN_X = 80;
 // Distancia mínima al auto anterior del mismo carril para que no aparezcan encimados.
 const MIN_GAP = 25;
-const CAR_COLORS = [0x8e1b1b, 0x1f3f66, 0xb9b9b4, 0x2b2b2e, 0x3f5e3a, 0xc2a14a, 0x6b6f75];
 
 // Posición local de la puerta del colectivo (lado derecho, delante del eje delantero).
 const BUS_DOOR_X = 4.9;
@@ -28,68 +35,15 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
-/** Conos de luz de los faros: geometría y material compartidos por todos los vehículos. */
-function createBeamResources() {
-  const geometry = new THREE.ConeGeometry(1.1, 7, 16, 1, true);
-  // Rotado para que el vértice quede atrás (en el faro) y la base hacia +x.
-  geometry.rotateZ(Math.PI / 2);
-  geometry.translate(3.5, 0, 0);
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xfff1c9,
-    transparent: true,
-    opacity: 0.07,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
-  return { geometry, material };
-}
-
-function addBeams(object, beams, x, y, zs) {
-  for (const z of zs) {
-    const beam = new THREE.Mesh(beams.geometry, beams.material);
-    beam.position.set(x, y, z);
-    beam.renderOrder = 1;
-    object.add(beam);
-  }
-}
-
-function addWheels(parts, radius, width, xs, halfTrack) {
-  for (const x of xs) {
-    for (const side of [1, -1]) {
-      const wheel = new THREE.CylinderGeometry(radius, radius, width, 12);
-      wheel.rotateX(Math.PI / 2);
-      wheel.translate(x, radius, side * halfTrack);
-      parts.push(paint(wheel, 0x17191c));
-    }
-  }
-}
-
-function buildCar(color, bodyMaterial, beams) {
-  const parts = [];
-  parts.push(paint(box(4.2, 0.62, 1.78, 0, 0.55, 0), color));
-  parts.push(paint(box(2.3, 0.56, 1.6, -0.25, 1.14, 0), 0x2b333b)); // cabina (vidrios)
-  parts.push(paint(box(2.1, 0.06, 1.62, -0.3, 1.43, 0), color)); // techo
-  addWheels(parts, 0.32, 0.24, [1.35, -1.35], 0.82);
-  for (const z of [0.58, -0.58]) {
-    parts.push(paint(box(0.04, 0.13, 0.32, 2.11, 0.64, z), 0xfff4d6, { shaded: false }));
-    parts.push(paint(box(0.04, 0.12, 0.3, -2.11, 0.66, z * 1.03), 0xd8261e, { shaded: false }));
-  }
-
-  const car = new THREE.Group();
-  car.name = 'car';
-  car.add(mergeParts(parts, 'car-body', bodyMaterial));
-  addBeams(car, beams, 2.13, 0.64, [0.58, -0.58]);
-  return car;
-}
-
 function buildBus(beams) {
   const parts = [];
   const length = 11.6;
   const halfLength = length / 2;
-  parts.push(paint(box(length, 1.2, 2.5, 0, 0.95, 0), 0xe7e5df)); // franja baja blanca
-  parts.push(paint(box(length, 1.55, 2.5, 0, 2.325, 0), 0x1f6fb2)); // franja alta
-  parts.push(paint(box(length - 0.2, 0.12, 2.4, 0, 3.16, 0), 0xd8d6d0)); // techo
+  // Carrocería con las aristas redondeadas (el radio deja planas las caras donde van los
+  // vidrios, la puerta y los carteles).
+  parts.push(paint(roundedBox(length, 1.2, 2.5, 0, 0.95, 0, 0.1), 0xe7e5df)); // franja baja blanca
+  parts.push(paint(roundedBox(length, 1.55, 2.5, 0, 2.325, 0, 0.1), 0x1f6fb2)); // franja alta
+  parts.push(paint(roundedBox(length - 0.2, 0.12, 2.4, 0, 3.16, 0, 0.05), 0xd8d6d0)); // techo
 
   // Ventanillas a ambos lados (del lado de la puerta terminan antes de ella).
   parts.push(paint(facadePlane(9.3, 1.05, -0.55, 2.3, BUS_HALF_WIDTH + 0.001, 1), 0x1c2530));
@@ -104,7 +58,7 @@ function buildBus(beams) {
   rearWindow.translate(-halfLength - 0.001, 2.3, 0);
   parts.push(paint(rearWindow, 0x222c36));
 
-  parts.push(paint(box(0.12, 0.3, 2.5, halfLength + 0.02, 0.45, 0), 0x2b2b2b)); // paragolpes
+  parts.push(paint(roundedBox(0.14, 0.3, 2.5, halfLength + 0.02, 0.45, 0, 0.05), 0x2b2b2b)); // paragolpes
   for (const z of [0.9, -0.9]) {
     parts.push(
       paint(box(0.04, 0.18, 0.35, halfLength + 0.03, 0.75, z), 0xfff4d6, { shaded: false }),
@@ -160,7 +114,8 @@ function buildBus(beams) {
   doorHitbox.visible = false;
   bus.add(doorHitbox);
 
-  addBeams(bus, beams, halfLength + 0.05, 0.75, [0.9, -0.9]);
+  addBeams(bus, beams, halfLength + 0.05, 0.75, [0.9, -0.9], 1.1);
+  addTailGlows(bus, beams, -halfLength - 0.05, 1.0, [1.05, -1.05], 0.6);
   return { object: bus, door, doorHitbox, crowd: buildBusCrowd(halfLength, bus) };
 }
 
@@ -275,6 +230,7 @@ export function createTraffic({ audio }) {
   // A esta distancia de la parada (m) se avisa que "viene el colectivo".
   const APPROACH_NOTICE = 30;
   let busState = 'hidden'; // 'hidden' | 'arriving' | 'stopped' | 'passing'
+  let busSpeed = 0;
   let busSound = null;
   let onBusEvent = null;
   let busFull = false;
@@ -323,6 +279,7 @@ export function createTraffic({ audio }) {
       const distance = Math.abs(doorX - busStop.x);
       const minimum = colectivo.velocidadMinimaLleno;
       const speed = minimum + (cruise - minimum) * Math.min(1, distance / 20);
+      busSpeed = speed;
       busSound.setRolling(speed / cruise);
       bus.object.position.x += speed * delta;
       if (!notified.passed && doorX > busStop.x) {
@@ -367,6 +324,17 @@ export function createTraffic({ audio }) {
       },
     },
     spawnBus,
+    /**
+     * Recorre los vehículos en movimiento del carril pegado a la vereda (los que pueden
+     * salpicar al jugador): `callback(object, speed, isBus)`. El colectivo cuenta solo
+     * cuando pasa lleno sin frenar.
+     */
+    forEachNearCurbVehicle(callback) {
+      for (const car of cars) {
+        if (car.direction > 0) callback(car.object, car.speed, false);
+      }
+      if (busState === 'passing') callback(bus.object, busSpeed, true);
+    },
     update(delta) {
       updateCars(delta);
       updateBus(delta);

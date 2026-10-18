@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+
+// Bisel por defecto de las cajas (m): ningún mueble real tiene aristas perfectas, y el
+// borde redondeado agarra la luz de la ventana.
+const DEFAULT_BEVEL = 0.012;
 
 /**
  * Acumula geometría estática agrupada por clave de material ("wallKey" del
@@ -12,9 +17,23 @@ export class GeometryBuckets {
     this._buckets = new Map();
   }
 
-  /** Agrega una caja (posición + rotación Y opcional) al bucket del material dado. */
-  addBox(materialKey, width, height, depth, x, y, z, rotationY = 0) {
-    const geo = new THREE.BoxGeometry(width, height, depth);
+  /**
+   * Agrega una caja con los bordes redondeados (posición + rotación Y opcional) al bucket
+   * del material dado. `radius` agranda el redondeo (almohadas, colchón).
+   */
+  addBox(
+    materialKey,
+    width,
+    height,
+    depth,
+    x,
+    y,
+    z,
+    rotationY = 0,
+    { radius = DEFAULT_BEVEL } = {},
+  ) {
+    const safeRadius = Math.min(radius, Math.min(width, height, depth) * 0.45);
+    const geo = new RoundedBoxGeometry(width, height, depth, 2, safeRadius);
     this._transformAndPush(materialKey, geo, x, y, z, rotationY);
   }
 

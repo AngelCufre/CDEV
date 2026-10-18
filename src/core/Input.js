@@ -22,6 +22,8 @@ export class Input {
     this.domElement = domElement;
 
     this.move = { forward: false, back: false, left: false, right: false };
+    // Teclas apretadas en este momento (por `event.code`), para acciones que se mantienen.
+    this._held = new Set();
 
     this._interactListeners = [];
     this._lockChangeListeners = [];
@@ -34,12 +36,15 @@ export class Input {
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
     this._onClick = this._onClick.bind(this);
+    this._onBlur = this._onBlur.bind(this);
 
     document.addEventListener('keydown', this._onKeyDown);
     document.addEventListener('keyup', this._onKeyUp);
     document.addEventListener('wheel', this._onWheel, { passive: true });
     document.addEventListener('mousemove', this._onMouseMove);
     domElement.addEventListener('click', this._onClick);
+    // Si la ventana pierde el foco con una tecla apretada, nunca llega su keyup.
+    window.addEventListener('blur', this._onBlur);
 
     this.controls.addEventListener('lock', () => this._emitLockChange(true));
     this.controls.addEventListener('unlock', () => this._emitLockChange(false));
@@ -63,6 +68,16 @@ export class Input {
    */
   setLookEnabled(enabled) {
     this.controls.enabled = enabled;
+  }
+
+  /** true mientras el jugador tiene el control de la mirada (no en animaciones ni fundidos). */
+  get isLookEnabled() {
+    return this.controls.enabled;
+  }
+
+  /** Si la tecla (`event.code`, por ejemplo 'Space') está apretada ahora. */
+  isHeld(code) {
+    return this._held.has(code);
   }
 
   onInteract(callback) {
@@ -101,6 +116,7 @@ export class Input {
   }
 
   _onKeyDown(event) {
+    this._held.add(event.code);
     if (!event.repeat) {
       for (const cb of this._keyListeners) cb(event.code, event.key);
     }
@@ -130,6 +146,7 @@ export class Input {
   }
 
   _onKeyUp(event) {
+    this._held.delete(event.code);
     switch (event.code) {
       case 'KeyW':
       case 'ArrowUp':
@@ -150,6 +167,11 @@ export class Input {
       default:
         break;
     }
+  }
+
+  _onBlur() {
+    this._held.clear();
+    for (const key of Object.keys(this.move)) this.move[key] = false;
   }
 
   _onWheel(event) {
@@ -176,6 +198,7 @@ export class Input {
     document.removeEventListener('wheel', this._onWheel);
     document.removeEventListener('mousemove', this._onMouseMove);
     this.domElement.removeEventListener('click', this._onClick);
+    window.removeEventListener('blur', this._onBlur);
     this.controls.dispose();
   }
 }

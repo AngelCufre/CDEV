@@ -54,6 +54,7 @@ export function createNarrative({
   overlay,
   audio,
   input,
+  stats,
   interaction,
   collision,
   notesPages,
@@ -85,6 +86,10 @@ export function createNarrative({
         ctx.timer = 0;
         ctx.hasStood = false;
         ctx.realized = false;
+        ctx.pagesRead = new Set();
+        // Empieza el día: los stats vuelven a cero y el HUD espera a que se levante.
+        stats.reset();
+        overlay.setStatsVisible(false);
         overlay.setObjective(null);
         overlay.setEyelidIntensity(1);
         overlay.setVignetteIntensity(0);
@@ -168,6 +173,7 @@ export function createNarrative({
         overlay.setEyelidIntensity(0);
         overlay.setVignetteIntensity(0);
         overlay.setCrosshairVisible(true);
+        overlay.setStatsVisible(true);
         // Solo la primera vez (al terminar de levantarse): al volver de leer los
         // apuntes o de darse cuenta de la hora, el jugador sigue donde estaba.
         if (!ctx.hasStood) {
@@ -192,11 +198,27 @@ export function createNarrative({
     },
 
     READING: {
-      onEnter() {
+      onEnter(ctx) {
         // La cámara queda quieta mientras se leen los apuntes; el movimiento
         // tampoco corre porque solo se aplica en EXPLORING.
         input.setLookEnabled(false);
         overlay.openNotes(notesPages);
+        ctx.pageIndex = overlay.currentNoteIndex;
+        ctx.pageTime = 0;
+      },
+      // Cada hoja mirada un rato cuenta como repasada (una vez): suma preparación. Antes
+      // de saber la hora repasar tranquiliza; después, se repasa a las apuradas.
+      onUpdate(delta, ctx) {
+        const index = overlay.currentNoteIndex;
+        if (index !== ctx.pageIndex) {
+          ctx.pageIndex = index;
+          ctx.pageTime = 0;
+        }
+        ctx.pageTime += delta;
+        if (ctx.pageTime >= config.stats.segundosPorHoja && !ctx.pagesRead.has(index)) {
+          ctx.pagesRead.add(index);
+          stats.trigger(ctx.realized ? 'hojaApurado' : 'hojaTranquilo');
+        }
       },
       onExit() {
         overlay.closeNotes();
@@ -228,10 +250,12 @@ export function createNarrative({
           overlay.showNarrativeText(
             `Son las ${config.narrative.horaDespertar}. El parcial es a las ${config.narrative.horaParcial}.`,
           );
+          stats.trigger('dormido');
         }
         if (!ctx.notifsShown && ctx.timer >= config.realization.notificacionesDelaySegundos) {
           ctx.notifsShown = true;
           overlay.showNotifications(config.narrative.notificaciones);
+          stats.trigger('mensajesSinLeer');
         }
         if (ctx.timer >= volver) {
           ctx.machine.transition('EXPLORING');
@@ -254,7 +278,7 @@ export function createNarrative({
         ctx.left = false;
         input.setLookEnabled(false);
         overlay.setObjective(null);
-        overlay.showFadeToBlack(config.salida.textoFundido);
+        overlay.showFadeToBlack(config.salida.textoFundido, stats.sceneDeltas());
         audio.stopHeartbeat();
       },
       onUpdate(delta, ctx) {
@@ -327,6 +351,10 @@ export function createNarrative({
     handleWheel,
     handlePointerMove,
     update(delta) {
+      // Desde que sabe la hora, los nervios suben solos (acá no hay reloj corriendo).
+      if (context.realized && machine.currentName !== 'LEAVING') {
+        stats.addLatenessStress(null, delta);
+      }
       machine.update(delta);
     },
   };

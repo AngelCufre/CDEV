@@ -3,6 +3,8 @@ import { config } from '../../config.js';
 import { Collision } from '../../systems/Collision.js';
 import { Interaction } from '../../systems/Interaction.js';
 import { buildSky, buildRain } from '../../world/weather.js';
+import { WetReflection } from '../../world/wetReflection.js';
+import { street } from './layout.js';
 import { buildStreetScene } from './buildStreetScene.js';
 import { createPuddles } from './puddles.js';
 import { createTraffic } from './traffic.js';
@@ -15,14 +17,16 @@ const SKY_RADIUS = 44;
 /**
  * Escena 2: la parada del colectivo (sin techo) bajo la lluvia. El jugador puede
  * caminar por la vereda, pisar charcos, ver pasar autos y mirar el celular con R
- * mientras espera; cuando llega el colectivo, sube con E.
+ * mientras espera; cuando llega el colectivo, sube con E y pasa a la escena 3.
  */
 export class BusStopScene {
-  constructor({ engine, input, audio, overlay }) {
+  constructor({ engine, input, audio, overlay, stats, goTo }) {
     this.engine = engine;
+    this.goTo = goTo;
     this.input = input;
     this.audio = audio;
     this.overlay = overlay;
+    this.stats = stats;
     this._unsubscribers = [];
 
     this.scene = new THREE.Scene();
@@ -35,7 +39,12 @@ export class BusStopScene {
   init() {
     const camera = this.engine.camera;
 
-    const world = buildStreetScene();
+    // Piso mojado: la calzada y la vereda reflejan, cada una en su plano.
+    this.reflections = {
+      street: new WetReflection({ y: street.surfaceY }),
+      sidewalk: new WetReflection({ y: 0 }),
+    };
+    const world = buildStreetScene(this.reflections);
     this.scene.add(world.group);
 
     this.sky = buildSky(SKY_RADIUS);
@@ -47,7 +56,11 @@ export class BusStopScene {
     });
     this.scene.add(this.rain.mesh);
 
-    this.puddles = createPuddles({ audio: this.audio, camera });
+    this.puddles = createPuddles({
+      audio: this.audio,
+      camera,
+      reflection: this.reflections.sidewalk,
+    });
     this.scene.add(this.puddles.group);
 
     this.traffic = createTraffic({ audio: this.audio });
@@ -69,10 +82,12 @@ export class BusStopScene {
       overlay: this.overlay,
       audio: this.audio,
       input: this.input,
+      stats: this.stats,
       interaction: this.interaction,
       collision: this.collision,
       puddles: this.puddles,
       traffic: this.traffic,
+      onBoarded: () => this.goTo('colectivo'),
     });
 
     this._unsubscribers.push(
@@ -93,9 +108,17 @@ export class BusStopScene {
     this.narrative.update(delta);
   }
 
+  /** Reflejos del piso mojado, con la cámara ya lista para el frame. */
+  beforeRender() {
+    for (const reflection of Object.values(this.reflections)) {
+      reflection.update(this.engine.renderer, this.scene, this.engine.camera);
+    }
+  }
+
   dispose() {
     for (const unsubscribe of this._unsubscribers) unsubscribe();
     this._unsubscribers = [];
+    for (const reflection of Object.values(this.reflections ?? {})) reflection.dispose();
     this.traffic?.stopSounds();
     this.audio.stopAll();
     this.interaction?.unregisterAll();

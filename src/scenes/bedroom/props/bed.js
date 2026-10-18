@@ -33,6 +33,8 @@ export function buildBed(buckets, obstacles) {
     center.x,
     mattressY,
     center.z,
+    0,
+    { radius: 0.06 },
   );
 
   // Acolchado/sábana revuelta: dos cajas superpuestas con leve rotación para dar
@@ -47,11 +49,24 @@ export function buildBed(buckets, obstacles) {
     blanketY,
     center.z + length * 0.12,
     0.03,
+    { radius: 0.045 },
   );
 
   // Almohada en la cabecera
   const pillowY = frameHeight + mattressHeight + 0.07;
-  buckets.addBox('pillow', width * 0.55, 0.14, 0.34, center.x - 0.05, pillowY, headZ + 0.24, -0.05);
+  buckets.addBox(
+    'pillow',
+    width * 0.55,
+    0.14,
+    0.34,
+    center.x - 0.05,
+    pillowY,
+    headZ + 0.24,
+    -0.05,
+    {
+      radius: 0.065,
+    },
+  );
 
   // Obstáculo de colisión: el volumen completo de la cama (footprint horizontal).
   obstacles.push(

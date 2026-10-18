@@ -1,7 +1,10 @@
+import { StatsHud, STAT_INFO, statIcon, createStatChip } from './StatsHud.js';
+
 /**
  * UI en HTML/CSS superpuesta al canvas (no texto 3D).
  * Encapsula la pantalla de inicio, hints de interacción, viñeta del despertar,
- * notificaciones narrativas y el fundido final. Todo se monta dentro de #overlay-root.
+ * notificaciones narrativas, el HUD de stats, el fundido entre escenas y el resumen
+ * final. Todo se monta dentro de #overlay-root.
  */
 export class Overlay {
   constructor(root) {
@@ -19,7 +22,10 @@ export class Overlay {
     this.objective = this._buildObjective();
     this.phone = this._buildPhone();
     this.toast = this._buildToast();
+    this.stats = new StatsHud();
+    this.summary = this._buildSummary();
     this._toastTimer = null;
+    this._onRestart = null;
     this._notesPages = [];
     this._notesIndex = 0;
     this._notesZoom = 1;
@@ -37,7 +43,10 @@ export class Overlay {
       this.toast,
       this.phone,
       this.notesViewer,
+      // Encima del visor de apuntes, para ver subir la preparación mientras se lee.
+      this.stats.el,
       this.fadeToBlack,
+      this.summary,
     );
   }
 
@@ -46,13 +55,27 @@ export class Overlay {
     const el = document.createElement('div');
     el.className = 'start-screen';
     el.innerHTML = `
-      <h1>El peor día — Escena 1: La habitación</h1>
-      <p>
-        Es de madrugada... o eso creés. Vas a despertarte, levantarte y descubrir qué hora es.
-        Movete con <strong>WASD</strong>, mirá con el <strong>mouse</strong> y presioná
-        <strong>E</strong> (o click) para interactuar con los objetos resaltados.
-      </p>
-      <button type="button">Comenzar</button>
+      <div class="start-card">
+        <p class="start-kicker">El peor día de un estudiante</p>
+        <h1>Patrones de di&#8209;sueños</h1>
+        <p class="start-intro">
+          Es de madrugada... o eso creés. Vas a despertarte, levantarte y descubrir qué hora es.
+        </p>
+        <ul class="start-controls">
+          <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>Caminar</li>
+          <li><span class="keys"><kbd>Mouse</kbd></span>Mirar</li>
+          <li><span class="keys"><kbd>E</kbd><kbd>Click</kbd></span>Interactuar</li>
+          <li><span class="keys"><kbd>R</kbd></span>Celular</li>
+          <li class="wide">
+            <span class="keys"><kbd>Espacio</kbd></span>Mantener, quieto, para respirar hondo
+          </li>
+        </ul>
+        <p class="start-stats">
+          ${STAT_INFO.map(({ key, label }) => `<span data-stat="${key}">${statIcon(key)}${label}</span>`).join('')}
+        </p>
+        <p class="start-stats-help">Arriba a la derecha vas a ver cómo te va afectando el día.</p>
+        <button type="button">Comenzar</button>
+      </div>
     `;
     return el;
   }
@@ -165,13 +188,21 @@ export class Overlay {
   _buildFadeToBlack() {
     const el = document.createElement('div');
     el.className = 'fade-to-black';
-    el.innerHTML = '<span>Continuará…</span>';
+    el.innerHTML = '<span class="fade-text">Continuará…</span><div class="fade-report"></div>';
     return el;
   }
 
-  /** Fundido a negro con un texto centrado ("Continuará…", "Minutos después…"). */
-  showFadeToBlack(text = 'Continuará…') {
-    this.fadeToBlack.querySelector('span').textContent = text;
+  /**
+   * Fundido a negro con un texto centrado ("Continuará…", "Minutos después…"). `report`
+   * ([{ key, delta }], de PlayerStats.sceneDeltas) muestra debajo cómo cambiaron los
+   * stats en la escena que termina.
+   */
+  showFadeToBlack(text = 'Continuará…', report = []) {
+    this.fadeToBlack.querySelector('.fade-text').textContent = text;
+    const reportEl = this.fadeToBlack.querySelector('.fade-report');
+    reportEl.replaceChildren(
+      ...report.map(({ key, delta }) => createStatChip(key, delta, { withIcon: true })),
+    );
     this.fadeToBlack.classList.add('visible');
   }
 
@@ -267,6 +298,93 @@ export class Overlay {
     }
   }
 
+  // ---------- HUD de stats ----------
+  setStatsVisible(visible) {
+    this.stats.setVisible(visible);
+  }
+
+  // ---------- Resumen final del día ----------
+  _buildSummary() {
+    const el = document.createElement('div');
+    el.className = 'day-summary';
+    el.innerHTML = `
+      <div class="summary-card">
+        <p class="summary-kicker">Continuará…</p>
+        <h2>Así llegás al parcial</h2>
+        <p class="summary-arrival"></p>
+        <div class="summary-stats"></div>
+        <p class="summary-verdict"></p>
+        <div class="summary-chance"><span>Chances de aprobar</span><strong></strong></div>
+        <h3>Momentos del día</h3>
+        <ol class="summary-moments"></ol>
+        <button type="button">Volver a jugar</button>
+      </div>
+    `;
+    el.querySelector('button').addEventListener('click', () => this._onRestart?.());
+    return el;
+  }
+
+  /** Qué hacer con el botón "Volver a jugar" del resumen final. */
+  onRestart(callback) {
+    this._onRestart = callback;
+  }
+
+  get isSummaryVisible() {
+    return this.summary.classList.contains('visible');
+  }
+
+  /** Muestra el resumen del día (lo que arma PlayerStats.summary). */
+  showDaySummary({ arrival, late, values, chance, verdict, moments }) {
+    const el = this.summary;
+    const arrivalEl = el.querySelector('.summary-arrival');
+    const lateText = late > 0 ? ` · ${late} min tarde` : ' · ¡a horario!';
+    arrivalEl.replaceChildren('Llegaste a las ', document.createElement('strong'), lateText);
+    arrivalEl.querySelector('strong').textContent = arrival;
+
+    const fills = [];
+    el.querySelector('.summary-stats').replaceChildren(
+      ...STAT_INFO.map(({ key, label }) => {
+        const row = document.createElement('div');
+        row.className = 'summary-stat';
+        row.dataset.stat = key;
+        row.innerHTML = `${statIcon(key)}<span></span><div class="stat-track"><div class="stat-fill"></div></div><span class="summary-stat-value"></span>`;
+        row.querySelector('span').textContent = label;
+        row.querySelector('.summary-stat-value').textContent = `${Math.round(values[key])}%`;
+        fills.push([row.querySelector('.stat-fill'), values[key]]);
+        return row;
+      }),
+    );
+
+    el.querySelector('.summary-verdict').textContent = verdict;
+    const chanceEl = el.querySelector('.summary-chance strong');
+    chanceEl.textContent = `${chance}%`;
+    chanceEl.dataset.level = chance >= 65 ? 'alta' : chance >= 40 ? 'media' : 'baja';
+
+    el.querySelector('.summary-moments').replaceChildren(
+      ...moments.map(({ escena, texto, cambios }) => {
+        const item = document.createElement('li');
+        const scene = document.createElement('span');
+        scene.className = 'moment-scene';
+        scene.textContent = escena ?? '';
+        const text = document.createElement('span');
+        text.textContent = texto;
+        item.append(
+          scene,
+          text,
+          ...Object.entries(cambios).map(([key, amount]) => createStatChip(key, amount)),
+        );
+        return item;
+      }),
+    );
+
+    this.setStatsVisible(false);
+    el.classList.add('visible');
+    // Las barras se llenan desde cero un instante después de aparecer.
+    setTimeout(() => {
+      for (const [fill, value] of fills) fill.style.transform = `scaleX(${value / 100})`;
+    }, 60);
+  }
+
   /** Deja la UI limpia para la escena siguiente. No toca el fundido a negro. */
   resetForSceneChange() {
     this.hideHint();
@@ -312,6 +430,11 @@ export class Overlay {
 
   closeNotes() {
     this.notesViewer.classList.remove('visible');
+  }
+
+  /** Hoja del visor que se está mirando (0 = la primera). */
+  get currentNoteIndex() {
+    return this._notesIndex;
   }
 
   showNextNote() {

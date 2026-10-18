@@ -24,11 +24,12 @@ import { buildOutdoor } from './outdoor.js';
  * que espera SceneManager.
  */
 export class BedroomScene {
-  constructor({ engine, input, audio, overlay, goTo }) {
+  constructor({ engine, input, audio, overlay, stats, goTo }) {
     this.engine = engine;
     this.input = input;
     this.audio = audio;
     this.overlay = overlay;
+    this.stats = stats;
     this.goTo = goTo;
     this._unsubscribers = [];
     this.scene = new THREE.Scene();
@@ -120,6 +121,7 @@ export class BedroomScene {
       overlay: this.overlay,
       audio: this.audio,
       input: this.input,
+      stats: this.stats,
       interaction: this.interaction,
       collision: this.collision,
       notesPages,
@@ -155,9 +157,15 @@ export class BedroomScene {
     this.narrative.update(delta);
   }
 
+  /** Reflejo de la calle mojada que se ve por la ventana. */
+  beforeRender() {
+    this.outdoor.reflection.update(this.engine.renderer, this.scene, this.engine.camera);
+  }
+
   dispose() {
     for (const unsubscribe of this._unsubscribers) unsubscribe();
     this._unsubscribers = [];
+    this.outdoor?.reflection.dispose();
     this.audio.stopAll();
     this.interaction?.unregisterAll();
     this.scene.traverse((object) => {

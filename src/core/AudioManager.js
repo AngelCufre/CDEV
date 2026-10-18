@@ -89,6 +89,88 @@ export class AudioManager {
     this._stopVoice('heartbeat');
   }
 
+  /**
+   * Un latido suelto (lub-dub) con el volumen dado. Lo dispara el estrés al ritmo del
+   * corazón, así que no se agenda de antemano como en `playHeartbeat`.
+   */
+  playHeartbeatBeat(volume) {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    // Cada golpe baja de tono, como un "thump" (se oye mejor en parlantes chicos).
+    for (const [start, level] of [
+      [0, 1],
+      [0.18, 0.7],
+    ]) {
+      osc.frequency.setValueAtTime(95, now + start);
+      osc.frequency.exponentialRampToValueAtTime(48, now + start + 0.12);
+      gain.gain.setValueAtTime(0, now + start);
+      gain.gain.linearRampToValueAtTime(volume * level, now + start + 0.03);
+      gain.gain.linearRampToValueAtTime(0, now + start + 0.12);
+    }
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(osc, gain, 0.35);
+  }
+
+  /**
+   * Respiración lenta y profunda mientras se mantiene apretado Espacio: ruido suave que
+   * sube y baja (inhalar / exhalar) con un LFO. `setBreathing(false)` la apaga.
+   */
+  setBreathing(active) {
+    const playing = this._activeVoices.has('breath');
+    if (active === playing) return;
+    if (!active) {
+      const voice = this._activeVoices.get('breath');
+      this._activeVoices.delete('breath');
+      const now = this.context.currentTime;
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+      voice.gain.gain.linearRampToValueAtTime(0, now + 0.4);
+      voice.osc.stop(now + 0.45);
+      voice.lfo.stop(now + 0.45);
+      voice.osc.onended = () => {
+        voice.osc.disconnect();
+        voice.lfo.disconnect();
+        voice.gain.disconnect();
+      };
+      return;
+    }
+    const ctx = this.context;
+    const volume = config.audio.volumenRespiracion;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 700;
+    band.Q.value = 0.7;
+
+    // El volumen oscila entre 0 y `volume`: un ciclo de respiración cada ~4 s.
+    const breath = ctx.createGain();
+    breath.gain.value = volume / 2;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.25;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = volume / 2;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(breath.gain);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.5);
+    noise.connect(band);
+    band.connect(breath);
+    breath.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+    lfo.start();
+    this._activeVoices.set('breath', { osc: noise, gain, lfo });
+  }
+
   /** Ambiente de fondo suave (ruido de habitación silenciosa). */
   playAmbient() {
     this._stopVoice('ambient');
@@ -184,26 +266,31 @@ export class AudioManager {
     this._playOneShot(osc, gain, 0.9);
   }
 
-  /** Pisar un charco: chapoteo (ruido que decae rápido) más un golpe grave. */
-  playSplash() {
+  /**
+   * Pisar un charco: chapoteo (ruido que decae rápido) más un golpe grave. Con
+   * `strength` > 1 es más fuerte, más grave y más largo (un auto que te salpica).
+   */
+  playSplash(strength = 1) {
     const ctx = this.context;
     const now = ctx.currentTime;
-    const volume = config.audio.volumenSalpicadura * (0.8 + Math.random() * 0.4);
+    const volume =
+      config.audio.volumenSalpicadura * Math.min(strength, 1.8) * (0.8 + Math.random() * 0.4);
+    const length = 0.35 * Math.sqrt(strength);
 
     const noise = ctx.createBufferSource();
     noise.buffer = this._getNoiseBuffer();
     noise.playbackRate.value = 0.8 + Math.random() * 0.4;
     const band = ctx.createBiquadFilter();
     band.type = 'bandpass';
-    band.frequency.value = 1100 + Math.random() * 500;
+    band.frequency.value = (1100 + Math.random() * 500) / Math.sqrt(strength);
     band.Q.value = 0.8;
     const noiseGain = ctx.createGain();
     noiseGain.gain.setValueAtTime(volume, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + length);
     noise.connect(band);
     band.connect(noiseGain);
     noiseGain.connect(ctx.destination);
-    this._playOneShot(noise, noiseGain, 0.4, Math.random());
+    this._playOneShot(noise, noiseGain, length + 0.05, Math.random());
 
     const thump = ctx.createOscillator();
     thump.type = 'sine';
@@ -215,6 +302,26 @@ export class AudioManager {
     thump.connect(thumpGain);
     thumpGain.connect(ctx.destination);
     this._playOneShot(thump, thumpGain, 0.15);
+  }
+
+  /** Timbre de "parada solicitada" del colectivo: un "ding" agudo con su armónico. */
+  playBell() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    for (const [frequency, volume] of [
+      [1480, 0.22],
+      [2960, 0.08],
+    ]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      this._playOneShot(osc, gain, 1);
+    }
   }
 
   /** Frenos de aire del colectivo y la puerta abriéndose: siseo agudo que se apaga. */
@@ -332,10 +439,12 @@ export class AudioManager {
     if (!voice) return;
     try {
       voice.osc.stop();
+      voice.lfo?.stop();
     } catch {
       // ya estaba detenido
     }
     voice.osc.disconnect();
+    voice.lfo?.disconnect();
     voice.gain.disconnect();
     this._activeVoices.delete(key);
   }

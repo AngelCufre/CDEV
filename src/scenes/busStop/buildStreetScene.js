@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { createWetGrassTexture, createBusStopSignTexture } from '../../utils/textures.js';
-import { paint, box, mergeParts, seededRandom } from '../../world/lowPoly.js';
+import { paint, box, mergeParts, mergePartsGeometry, seededRandom } from '../../world/lowPoly.js';
 import { addHouse, addTree, addLampPost, addFence } from '../../world/buildings.js';
+import { createGlowMaterial, addGlow } from '../../world/glow.js';
 import {
   street,
   sidewalk,
@@ -58,7 +59,9 @@ const YARD_TREES = [
   { x: 17.8, z: -8.0, type: 'pine', scale: 1.2 },
 ];
 
-function buildRoadAndSidewalks(parts) {
+/** Calzada y marcas pintadas: todo sobre el plano de la calle. */
+function buildRoad() {
+  const parts = [];
   const asphalt = new THREE.PlaneGeometry(street.length, street.halfWidth * 2);
   asphalt.rotateX(-Math.PI / 2);
   asphalt.translate(0, street.surfaceY, 0);
@@ -68,7 +71,12 @@ function buildRoadAndSidewalks(parts) {
   for (let x = -half + 3; x <= half - 3; x += 4) {
     parts.push(paint(box(1.6, 0.01, 0.12, x, street.surfaceY + 0.005, 0), 0xc9c4b0));
   }
+  return mergePartsGeometry(parts);
+}
 
+/** Veredas, cordones y el camino de la casa: todo a la altura de la vereda (y = 0). */
+function buildSidewalks() {
+  const parts = [];
   const sidewalkCenter = (sidewalk.nearZ + sidewalk.farZ) / 2;
   for (const side of [1, -1]) {
     parts.push(
@@ -91,6 +99,18 @@ function buildRoadAndSidewalks(parts) {
   parts.push(
     paint(box(1.2, 0.02, pathLength, home.x, 0.01, sidewalk.farZ + pathLength / 2), 0x8a8680),
   );
+  return mergePartsGeometry(parts);
+}
+
+/** Halo de cada farol prendido, debajo de la lámpara. */
+function buildLampGlows() {
+  const group = new THREE.Group();
+  group.name = 'lamp-glows';
+  const material = createGlowMaterial(0xffd9a0, 0.75);
+  for (const lamp of lampPosts) {
+    addGlow(group, material, lamp.x, 4.0, lamp.z + lamp.armDirZ * 0.85, 1.8);
+  }
+  return group;
 }
 
 function buildFences(parts) {
@@ -134,7 +154,7 @@ function buildHouses(parts) {
 }
 
 function buildBusStopPole(parts) {
-  const pole = new THREE.CylinderGeometry(0.04, 0.04, 2.7, 8);
+  const pole = new THREE.CylinderGeometry(0.04, 0.04, 2.7, 12);
   pole.translate(busStop.x, 1.35, busStop.z);
   parts.push(paint(pole, 0x9aa0a6));
 
@@ -214,12 +234,34 @@ function buildObstacles() {
   return obstacles;
 }
 
-export function buildStreetScene() {
+/**
+ * Arma la cuadra. La calle y las veredas son superficies mojadas que reflejan, cada una
+ * en su plano (`reflections.street` a la altura de la calzada, `reflections.sidewalk` a
+ * la de la vereda).
+ */
+export function buildStreetScene(reflections) {
   const group = new THREE.Group();
   group.name = 'street-scene';
 
+  const road = reflections.street.createSurface(buildRoad(), {
+    reflectivity: 0.8,
+    minReflect: 0.08,
+    darken: 0.72,
+    streak: 0.07,
+    distortion: 0.008,
+  });
+  road.name = 'wet-road';
+  const sidewalks = reflections.sidewalk.createSurface(buildSidewalks(), {
+    reflectivity: 0.3,
+    minReflect: 0.03,
+    darken: 0.7,
+    streak: 0.04,
+    distortion: 0.014,
+  });
+  sidewalks.name = 'wet-sidewalks';
+  group.add(road, sidewalks, buildLampGlows());
+
   const parts = [];
-  buildRoadAndSidewalks(parts);
   buildFences(parts);
   buildHouses(parts);
   for (const tree of [...YARD_TREES, ...sidewalkTrees]) addTree(parts, tree);
