@@ -113,7 +113,7 @@ export const config = {
     cieloColor: 0xaab6c2,
     sueloColor: 0x6b5a48,
     ambienteIntensidad: 0.8,
-    shadowMapSize: 1024,
+    shadowMapSize: 2048,
   },
 
   // --- Exterior (paisaje visto por la ventana) ---

@@ -5,6 +5,7 @@ import {
   createWoodTexture,
   createFabricTexture,
   createRainOnGlassTexture,
+  createPosterTexture,
 } from '../../utils/textures.js';
 
 /**
@@ -51,10 +52,39 @@ export function createBedroomMaterials() {
     roughness: 0.95,
   });
 
+  // DoubleSide: el acolchado es una tela de una sola cara que cuelga del colchón.
   const fabricClothes = new THREE.MeshStandardMaterial({
     map: createFabricTexture('#7a2e2e'),
     roughness: 0.95,
+    side: THREE.DoubleSide,
   });
+
+  const backpack = new THREE.MeshStandardMaterial({
+    map: createFabricTexture('#2f3f33'),
+    roughness: 0.9,
+  });
+
+  const curtain = new THREE.MeshStandardMaterial({
+    map: createFabricTexture('#b9b1a0'),
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+  });
+
+  const rug = new THREE.MeshStandardMaterial({
+    map: createFabricTexture('#4d5566'),
+    roughness: 1,
+  });
+
+  // Zócalos, marcos de la puerta y la ventana, placa del interruptor.
+  const trim = new THREE.MeshStandardMaterial({ color: 0xf0ebe0, roughness: 0.8 });
+  const ceramic = new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.35 });
+  const darkMatte = new THREE.MeshStandardMaterial({ color: 0x26262a, roughness: 0.9 });
+  const shade = new THREE.MeshStandardMaterial({
+    color: 0xe8dcc0,
+    roughness: 0.85,
+    side: THREE.DoubleSide,
+  });
+  const poster = new THREE.MeshStandardMaterial({ map: createPosterTexture(), roughness: 0.9 });
 
   const pillow = new THREE.MeshStandardMaterial({
     color: 0xf3ede0,
@@ -88,6 +118,17 @@ export function createBedroomMaterials() {
     metal,
     fabricBed,
     fabricClothes,
+    backpack,
+    curtain,
+    rug,
+    trim,
+    ceramic,
+    darkMatte,
+    // Mismo material que darkMatte, con su propia clave: el marco del póster está pegado
+    // a la pared y no debe proyectar sombra, a diferencia del resto de lo oscuro mate.
+    posterFrame: darkMatte,
+    shade,
+    poster,
     pillow,
     glass,
     screenOff,

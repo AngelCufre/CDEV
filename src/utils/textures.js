@@ -129,6 +129,94 @@ export function createFabricTexture(colorBase = '#3d5a80') {
   return finalize(canvas, 1);
 }
 
+/** Póster de la cátedra para la pared de la habitación: título y diagramas UML. */
+export function createPosterTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 720;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1f3a5f';
+  ctx.fillRect(0, 0, 512, 720);
+  ctx.strokeStyle = 'rgba(232, 225, 208, 0.5)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(22, 22, 468, 676);
+
+  ctx.fillStyle = '#e8e1d0';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 46px sans-serif';
+  ctx.fillText('PATRONES', 256, 100);
+  ctx.fillText('DE DISEÑO', 256, 152);
+  ctx.fillStyle = '#d6b16b';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('Observer · State · Strategy', 256, 196);
+
+  // Diagrama de clases: tres cajas con flechas.
+  ctx.strokeStyle = '#e8e1d0';
+  ctx.fillStyle = '#e8e1d0';
+  ctx.lineWidth = 3;
+  const boxes = [
+    [70, 260, 170, 90, 'Subject', '+ notify()'],
+    [272, 260, 170, 90, 'Observer', '+ update()'],
+    [272, 430, 170, 90, 'Concrete', '+ update()'],
+  ];
+  for (const [x, y, w, h, name, method] of boxes) {
+    ctx.strokeRect(x, y, w, h);
+    ctx.beginPath();
+    ctx.moveTo(x, y + 34);
+    ctx.lineTo(x + w, y + 34);
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText(name, x + w / 2, y + 25);
+    ctx.textAlign = 'left';
+    ctx.font = '16px monospace';
+    ctx.fillText(method, x + 12, y + 62);
+  }
+  const arrow = (x1, y1, x2, y2, hollow) => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 16 * Math.cos(angle - 0.45), y2 - 16 * Math.sin(angle - 0.45));
+    ctx.lineTo(x2 - 16 * Math.cos(angle + 0.45), y2 - 16 * Math.sin(angle + 0.45));
+    ctx.closePath();
+    if (hollow) {
+      ctx.fillStyle = '#1f3a5f';
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#e8e1d0';
+    } else {
+      ctx.fill();
+    }
+  };
+  arrow(240, 305, 270, 305, false);
+  arrow(357, 430, 357, 352, true);
+
+  // Máquina de estados: dos estados y la transición.
+  ctx.lineWidth = 3;
+  for (const [x, y, name] of [
+    [120, 580, 'Dormido'],
+    [330, 580, 'Tarde'],
+  ]) {
+    ctx.beginPath();
+    ctx.arc(x, y, 44, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.font = '17px sans-serif';
+    ctx.fillText(name, x, y + 6);
+  }
+  arrow(166, 580, 284, 580, false);
+  ctx.font = 'italic 15px sans-serif';
+  ctx.fillText('alarma / despertar()', 225, 562);
+  ctx.fillStyle = 'rgba(232, 225, 208, 0.7)';
+  ctx.font = 'italic 17px sans-serif';
+  ctx.fillText('Cátedra de Diseño de Software · UTN', 256, 686);
+  return finalize(canvas, 1);
+}
+
 /** Pantalla de despertador digital: fondo oscuro + dígitos en LED rojo/verde. */
 export function createClockScreenTexture(timeText = '07:52') {
   const canvas = makeCanvas(128);

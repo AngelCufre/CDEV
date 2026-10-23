@@ -8,7 +8,8 @@ import { buildBed } from './props/bed.js';
 import { buildNightstand } from './props/nightstand.js';
 import { buildDesk } from './props/desk.js';
 import { buildChair } from './props/chair.js';
-import { buildBookPile } from './props/clutter.js';
+import { buildBookPile, buildFloorClutter } from './props/clutter.js';
+import { buildCurtains, buildRug, buildPoster } from './props/decor.js';
 import { buildAlarmClock } from './props/alarmClock.js';
 import { buildPhone } from './props/phone.js';
 import { buildNotes } from './props/notes.js';
@@ -48,7 +49,7 @@ export class BedroomScene {
     const obstacles = [];
     const buckets = new GeometryBuckets();
 
-    const { group: roomGroup, obstacles: roomObstacles, doorMesh } = buildRoom(materials);
+    const { group: roomGroup, obstacles: roomObstacles, doorMesh } = buildRoom(materials, buckets);
     this.scene.add(roomGroup);
     obstacles.push(...roomObstacles);
 
@@ -56,12 +57,26 @@ export class BedroomScene {
     const { topY: nightstandTopY } = buildNightstand(buckets, obstacles);
     const { topY: deskTopY } = buildDesk(buckets, obstacles);
     buildChair(buckets, obstacles);
+    buildFloorClutter(buckets, obstacles);
+    buildCurtains(buckets);
+    buildRug(buckets);
+    buildPoster(buckets);
 
+    // Los muebles proyectan sombra: el shadow map es estático (se calcula una vez), así
+    // que no cuesta nada por frame y les da apoyo sobre el piso.
     const furnitureMeshes = buckets.buildMeshes(materials, {
-      castShadow: false,
+      castShadow: true,
       receiveShadow: true,
     });
-    for (const mesh of furnitureMeshes) this.scene.add(mesh);
+    // Las paredes no proyectan sombra (la luz de la ventana baña toda la habitación), así
+    // que lo que está pegado a ellas tampoco debe hacerlo: el póster, los marcos y zócalos,
+    // el barral y las cortinas tirarían sombras sueltas, sin pared que las explique. Solo
+    // proyectan los muebles y objetos que apoyan en el piso o sobre ellos.
+    const wallMounted = new Set(['poster', 'posterFrame', 'trim', 'metal', 'curtain']);
+    for (const mesh of furnitureMeshes) {
+      if (wallMounted.has(mesh.name.replace('furniture-', ''))) mesh.castShadow = false;
+      this.scene.add(mesh);
+    }
 
     const bookPile = buildBookPile(1.35, 0.35);
     this.scene.add(bookPile.mesh);
