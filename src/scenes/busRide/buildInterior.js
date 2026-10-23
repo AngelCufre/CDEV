@@ -127,7 +127,8 @@ function buildStopRequestedSign() {
       new THREE.MeshBasicMaterial({ map: texture }),
     );
     mesh.rotation.y = Math.PI;
-    mesh.position.set((bus.backDoor.minX + bus.backDoor.maxX) / 2, 2.15, bus.halfWidth - 0.02);
+    // Sobre la cara de la carcasa, que a su vez está pegada al dintel de la puerta.
+    mesh.position.set((bus.backDoor.minX + bus.backDoor.maxX) / 2, 2.15, bus.halfWidth - 0.032);
     return mesh;
   };
   const off = make(false);
@@ -187,6 +188,27 @@ export function buildBusInterior() {
   // Paredes laterales con ventanillas.
   addWall(parts, glassPanes, -1, [[-halfLength, halfLength]]);
   addWall(parts, glassPanes, 1, rightWallRuns());
+  // Dinteles sobre las puertas (entre el marco y el techo), como el resto de la pared.
+  const wallZ = halfWidth + WALL_THICKNESS / 2;
+  for (const door of [bus.frontDoor, bus.backDoor]) {
+    const centerX = (door.minX + door.maxX) / 2;
+    parts.push(
+      paint(
+        box(
+          door.maxX - door.minX,
+          ceilingY - windowTopY,
+          WALL_THICKNESS,
+          centerX,
+          (windowTopY + ceilingY) / 2,
+          wallZ,
+        ),
+        0xc9c6bd,
+      ),
+    );
+  }
+  // Carcasa del cartel de "parada solicitada", pegada al dintel de la puerta de atrás.
+  const signX = (bus.backDoor.minX + bus.backDoor.maxX) / 2;
+  parts.push(paint(box(0.76, 0.18, 0.03, signX, 2.15, halfWidth - 0.015), 0x15161a));
 
   // Fondo: pared con luneta.
   const rearX = -halfLength - WALL_THICKNESS / 2;
