@@ -3,7 +3,17 @@ import { config } from '../../config.js';
 import { room } from './roomLayout.js';
 import { createWetGrassTexture } from '../../utils/textures.js';
 import { paint, box, mergeParts, mergePartsGeometry, seededRandom } from '../../world/lowPoly.js';
-import { addHouse, addTree, addLampPost, addFence } from '../../world/buildings.js';
+import {
+  addHouse,
+  addTree,
+  addLampPost,
+  addFence,
+  addApartmentBlock,
+  addShrub,
+  addUtilityPole,
+  buildCables,
+  addTrashBin,
+} from '../../world/buildings.js';
 import { buildSky, buildRain } from '../../world/weather.js';
 import { WetReflection } from '../../world/wetReflection.js';
 import { createGlowMaterial, addGlow } from '../../world/glow.js';
@@ -16,6 +26,7 @@ import { createGlowMaterial, addGlow } from '../../world/glow.js';
  * las luces de la escena están pensadas para el interior y no iluminarían bien las
  * fachadas que miran a la habitación.
  * La calzada está mojada: refleja el paisaje (WetReflection) y los faroles tienen halo.
+ * Detrás de las casas de enfrente, edificios de departamentos entre la niebla.
  */
 
 const GROUND_Y = -0.3;
@@ -23,6 +34,10 @@ const ROAD_Y = GROUND_Y + 0.02;
 const STREET_Z = -10;
 const STREET_DEPTH = 5.5;
 const LAMP_XS = [-6, 6.5];
+const HOUSES_FRONT_Z = -14.2;
+/** Vereda de enfrente, junto al cordón: postes de luz con cables. */
+const POLE_Z = STREET_Z - STREET_DEPTH / 2 - 0.35;
+const POLE_XS = [-32, -12, 8, 28];
 // Muro norte exterior: la lluvia y el paisaje arrancan del otro lado.
 const WALL_OUTER_Z = -(room.depth / 2 + room.wallThickness);
 
@@ -67,7 +82,7 @@ function buildLampGlows() {
   return group;
 }
 
-function buildHouses(parts) {
+function buildHouses(parts, random) {
   const houses = [
     { x: -16, width: 4.6, floors: 1, color: 0x9c8f86 },
     { x: -10.5, width: 5.0, floors: 2, color: 0xb9a58c },
@@ -77,11 +92,46 @@ function buildHouses(parts) {
     { x: 11.5, width: 5.0, floors: 2, color: 0x7f8a7c },
     { x: 17, width: 4.6, floors: 1, color: 0xb0a89c },
   ];
-  // Semilla fija para que las ventanas encendidas no cambien entre recargas.
-  const random = seededRandom(7);
   for (const house of houses) {
-    addHouse(parts, { ...house, frontZ: -14.2, facing: 1, groundY: GROUND_Y, random });
+    addHouse(parts, { ...house, frontZ: HOUSES_FRONT_Z, facing: 1, groundY: GROUND_Y, random });
   }
+  // Arbustos entre casa y casa, y algunos de este lado junto al cerco.
+  const shrubs = [
+    { x: -13.35, z: -14.9, scale: 1.3 },
+    { x: -7.6, z: -14.9, scale: 1.1 },
+    { x: -2.45, z: -14.9, scale: 1.4 },
+    { x: 3.5, z: -14.9, scale: 1.2 },
+    { x: 8.55, z: -14.9, scale: 1.3 },
+    { x: 14.35, z: -14.9, scale: 1.1 },
+    { x: -8, z: -5.4, scale: 1.0 },
+    { x: -3, z: -5.5, scale: 1.2 },
+    { x: 2.6, z: -5.6, scale: 0.9 },
+    { x: 7.5, z: -5.4, scale: 1.1 },
+  ];
+  for (const shrub of shrubs) addShrub(parts, { ...shrub, groundY: GROUND_Y });
+  addTrashBin(parts, { x: -7.9, z: -13.1, groundY: GROUND_Y });
+
+  // Edificios de departamentos detrás de las casas.
+  const blocks = [
+    { x: -14, width: 14, floors: 5, color: 0x8f8a84 },
+    { x: 2, width: 12, floors: 6, color: 0x9a948c },
+    { x: 16, width: 12, floors: 5, color: 0x8c8f93 },
+  ];
+  for (const block of blocks) {
+    addApartmentBlock(parts, { ...block, z: -27, facing: 1, groundY: GROUND_Y, random });
+  }
+}
+
+/** Postes de luz de la vereda de enfrente, con cables entre sí y bajadas a dos casas. */
+function buildUtilities(parts) {
+  const poles = POLE_XS.map((x) => addUtilityPole(parts, { x, z: POLE_Z, groundY: GROUND_Y }));
+  const spans = [];
+  for (let i = 0; i + 1 < poles.length; i += 1) {
+    for (let w = 0; w < 3; w += 1) spans.push([poles[i][w], poles[i + 1][w]]);
+  }
+  spans.push([poles[1][1], new THREE.Vector3(-9.3, GROUND_Y + 5.2, HOUSES_FRONT_Z)]);
+  spans.push([poles[2][1], new THREE.Vector3(7.2, GROUND_Y + 2.7, HOUSES_FRONT_Z)]);
+  return buildCables(spans);
 }
 
 function buildTrees(parts) {
@@ -126,12 +176,15 @@ export function buildOutdoor() {
   const group = new THREE.Group();
   group.name = 'outdoor';
 
+  // Semilla fija para que las ventanas encendidas (y los techos) no cambien entre recargas.
+  const random = seededRandom(7);
   const parts = [];
   buildStreet(parts);
   addFence(parts, { fromX: -15, toX: 15, z: -6.2, groundY: GROUND_Y });
-  buildHouses(parts);
+  buildHouses(parts, random);
   buildTrees(parts);
   buildHills(parts);
+  const cables = buildUtilities(parts);
   const landscape = mergeParts(parts, 'landscape');
 
   // Más gotas cerca de la ventana, que es donde se distinguen.
@@ -156,6 +209,7 @@ export function buildOutdoor() {
     buildGround(),
     landscape,
     road,
+    cables,
     buildLampGlows(),
     rain.mesh,
   );

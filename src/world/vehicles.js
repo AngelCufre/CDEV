@@ -50,34 +50,81 @@ export function addTailGlows(object, beams, x, y, zs, size = 0.5) {
   for (const z of zs) addGlow(object, beams.tailGlow, x - 0.05, y, z, size);
 }
 
-/** Ruedas con su taza (más clara, hacia afuera). */
-export function addWheels(parts, radius, width, xs, halfTrack) {
+/** Ruedas con su taza (más clara, hacia afuera): [{ geo, color }] sin pintar. */
+function wheelGeometries(radius, width, xs, halfTrack) {
+  const list = [];
   for (const x of xs) {
     for (const side of [1, -1]) {
       const wheel = new THREE.CylinderGeometry(radius, radius, width, 24);
       wheel.rotateX(Math.PI / 2);
       wheel.translate(x, radius, side * halfTrack);
-      parts.push(paint(wheel, 0x17191c));
+      list.push({ geo: wheel, color: 0x17191c });
       const hub = new THREE.CylinderGeometry(radius * 0.55, radius * 0.55, width + 0.01, 16);
       hub.rotateX(Math.PI / 2);
       hub.translate(x, radius, side * halfTrack);
-      parts.push(paint(hub, 0x7d8186));
+      list.push({ geo: hub, color: 0x7d8186 });
     }
+  }
+  return list;
+}
+
+export function addWheels(parts, radius, width, xs, halfTrack) {
+  for (const { geo, color } of wheelGeometries(radius, width, xs, halfTrack)) {
+    parts.push(paint(geo, color));
+  }
+}
+
+/**
+ * Piezas de un auto (sin pintar), en coordenadas locales. Con `lightsOn` los faros y
+ * las luces traseras se ven prendidos; apagados, son solo plástico.
+ */
+function carGeometries(color, lightsOn) {
+  const list = [];
+  list.push({ geo: roundedBox(4.2, 0.62, 1.78, 0, 0.55, 0, 0.14), color });
+  // Cabina (vidrios) más angosta arriba: parabrisas y luneta inclinados.
+  list.push({
+    geo: taperTop(roundedBox(2.3, 0.56, 1.6, -0.25, 1.14, 0, 0.12), 0.9, 0.78, 0.9),
+    color: 0x2b333b,
+  });
+  list.push({ geo: roundedBox(1.72, 0.06, 1.46, -0.3, 1.43, 0, 0.03), color }); // techo
+  list.push(...wheelGeometries(0.32, 0.24, [1.35, -1.35], 0.82));
+  for (const z of [0.58, -0.58]) {
+    list.push({
+      geo: box(0.04, 0.13, 0.32, 2.11, 0.64, z),
+      color: lightsOn ? 0xfff4d6 : 0xb8b6a8,
+      shaded: !lightsOn,
+    });
+    list.push({
+      geo: box(0.04, 0.12, 0.3, -2.11, 0.66, z * 1.03),
+      color: lightsOn ? 0xd8261e : 0x6a1c17,
+      shaded: !lightsOn,
+    });
+  }
+  // Manijas y espejos.
+  for (const side of [1, -1]) {
+    list.push({ geo: roundedBox(0.12, 0.05, 0.1, 0.95, 1.08, side * 0.84, 0.02), color });
+    list.push({ geo: box(0.14, 0.03, 0.03, 0.3, 0.78, side * 0.9), color: 0x1b1d20 });
+    list.push({ geo: box(0.14, 0.03, 0.03, -0.9, 0.78, side * 0.9), color: 0x1b1d20 });
+  }
+  return list;
+}
+
+/**
+ * Auto fusionado con el resto del paisaje (por ejemplo, estacionado en una entrada):
+ * mira hacia `yaw` (0 = +x) con el piso en `groundY`. Con las luces apagadas.
+ */
+export function addParkedCar(parts, { x, z, yaw = 0, groundY = 0, color }) {
+  for (const { geo, color: partColor, shaded = true } of carGeometries(color, false)) {
+    geo.rotateY(yaw);
+    geo.translate(x, groundY, z);
+    parts.push(paint(geo, partColor, { shaded }));
   }
 }
 
 export function buildCar(color, bodyMaterial, beams) {
-  const parts = [];
-  parts.push(paint(roundedBox(4.2, 0.62, 1.78, 0, 0.55, 0, 0.14), color));
-  // Cabina (vidrios) más angosta arriba: parabrisas y luneta inclinados.
-  const cabin = taperTop(roundedBox(2.3, 0.56, 1.6, -0.25, 1.14, 0, 0.12), 0.9, 0.78, 0.9);
-  parts.push(paint(cabin, 0x2b333b));
-  parts.push(paint(roundedBox(1.72, 0.06, 1.46, -0.3, 1.43, 0, 0.03), color)); // techo
-  addWheels(parts, 0.32, 0.24, [1.35, -1.35], 0.82);
-  for (const z of [0.58, -0.58]) {
-    parts.push(paint(box(0.04, 0.13, 0.32, 2.11, 0.64, z), 0xfff4d6, { shaded: false }));
-    parts.push(paint(box(0.04, 0.12, 0.3, -2.11, 0.66, z * 1.03), 0xd8261e, { shaded: false }));
-  }
+  const parts = carGeometries(color, true).map(({ geo, color: partColor, shaded = true }) =>
+    paint(geo, partColor, { shaded }),
+  );
 
   const car = new THREE.Group();
   car.name = 'car';

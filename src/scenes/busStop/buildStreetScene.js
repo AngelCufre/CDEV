@@ -2,7 +2,23 @@ import * as THREE from 'three';
 import { config } from '../../config.js';
 import { createWetGrassTexture, createBusStopSignTexture } from '../../utils/textures.js';
 import { paint, box, mergeParts, mergePartsGeometry, seededRandom } from '../../world/lowPoly.js';
-import { addHouse, addTree, addLampPost, addFence } from '../../world/buildings.js';
+import {
+  addHouse,
+  addTree,
+  addLampPost,
+  addFence,
+  addBarGate,
+  addApartmentBlock,
+  addShrub,
+  addHedge,
+  addUtilityPole,
+  buildCables,
+  addTrashBin,
+  addMailbox,
+  addBench,
+  addRoundSign,
+} from '../../world/buildings.js';
+import { addParkedCar } from '../../world/vehicles.js';
 import { createGlowMaterial, addGlow } from '../../world/glow.js';
 import {
   street,
@@ -47,6 +63,40 @@ const FAR_HOUSES = [
   { x: 21, width: 5.2, floors: 2, color: 0xb0a89c },
   { x: 27.5, width: 4.8, floors: 1, color: 0xa39485 },
 ];
+
+/**
+ * Entradas de auto (hueco en el cerco con portón de caños y un auto estacionado en el
+ * jardín, paralelo a la calle). `side` = 1 es la vereda del jugador.
+ */
+const DRIVEWAYS = [
+  { x: 6.5, side: 1, yaw: 0, color: 0x1f3f66 },
+  { x: 19.5, side: 1, yaw: Math.PI, color: 0xb9b9b4 },
+  { x: -11, side: -1, yaw: 0, color: 0x8e1b1b },
+  { x: 14.5, side: -1, yaw: Math.PI, color: 0x3f5e3a },
+];
+const DRIVEWAY_HALF = 2.6;
+
+/** Banco y señal en la vereda del jugador (también son obstáculos). */
+const BENCH = { x: 4.6, z: 6.0, halfLength: 0.8, minZ: 5.72, maxZ: 6.3 };
+const SIGN = { x: -10.5, z: 3.78 };
+const MAILBOX = { x: home.x - 0.85, z: sidewalk.farZ + 0.35 };
+/** Arbustos dentro del jardín de la casa del estudiante (ahí sí se puede caminar). */
+const HOME_SHRUBS = [-8.3, -4.7];
+
+/** Edificios de departamentos detrás de las casas, de este lado y de enfrente. */
+const NEAR_BLOCKS = [
+  { x: -22, width: 14, floors: 6, color: 0x9a948c },
+  { x: -4, width: 12, floors: 5, color: 0x8c8f93 },
+  { x: 12, width: 16, floors: 7, color: 0xa39b90 },
+  { x: 30, width: 12, floors: 5, color: 0x8f8a84 },
+];
+const FAR_BLOCKS = [
+  { x: -28, width: 14, floors: 5, color: 0x8f8a84 },
+  { x: -10, width: 12, floors: 7, color: 0x9a948c },
+  { x: 8, width: 16, floors: 6, color: 0x8c8f93 },
+  { x: 26, width: 12, floors: 5, color: 0xa39b90 },
+];
+const BLOCKS_Z = 27;
 
 const YARD_TREES = [
   { x: -16, z: 7.9, type: 'round', scale: 1.2 },
@@ -113,12 +163,31 @@ function buildLampGlows() {
   return group;
 }
 
+/** Tramos de cerco de un lado, salteando las entradas de auto (y el portón de la casa). */
+function fenceRuns(side) {
+  const gaps = DRIVEWAYS.filter((d) => d.side === side).map((d) => [
+    d.x - DRIVEWAY_HALF,
+    d.x + DRIVEWAY_HALF,
+  ]);
+  if (side === 1) gaps.push([home.x - home.gateWidth / 2, home.x + home.gateWidth / 2]);
+  gaps.sort((a, b) => a[0] - b[0]);
+  const runs = [];
+  let cursor = -40;
+  for (const [from, to] of gaps) {
+    runs.push([cursor, from]);
+    cursor = to;
+  }
+  runs.push([cursor, 40]);
+  return runs;
+}
+
 function buildFences(parts) {
   const fenceZ = sidewalk.farZ + 0.05;
   const gateHalf = home.gateWidth / 2;
-  // Este lado: con el hueco del portón de la casa del estudiante.
-  addFence(parts, { fromX: -40, toX: home.x - gateHalf, z: fenceZ, railOffsetZ: -0.06 });
-  addFence(parts, { fromX: home.x + gateHalf, toX: 40, z: fenceZ, railOffsetZ: -0.06 });
+  // Este lado: con el hueco del portón de la casa del estudiante y las entradas de auto.
+  for (const [fromX, toX] of fenceRuns(1)) {
+    addFence(parts, { fromX, toX, z: fenceZ, railOffsetZ: -0.06 });
+  }
   // Postes del portón (quedó abierto: salió apurado).
   for (const x of [home.x - gateHalf, home.x + gateHalf]) {
     parts.push(paint(box(0.13, 1.15, 0.13, x, 0.575, fenceZ), 0x3b3029));
@@ -128,7 +197,112 @@ function buildFences(parts) {
     addFenceAlongZ(parts, x, fenceZ, housesFrontZ);
   }
   // Enfrente.
-  addFence(parts, { fromX: -40, toX: 40, z: -fenceZ });
+  for (const [fromX, toX] of fenceRuns(-1)) addFence(parts, { fromX, toX, z: -fenceZ });
+  // Portones (cerrados) de las entradas de auto.
+  for (const d of DRIVEWAYS) {
+    addBarGate(parts, {
+      fromX: d.x - DRIVEWAY_HALF,
+      toX: d.x + DRIVEWAY_HALF,
+      z: d.side * fenceZ,
+    });
+  }
+}
+
+/** Jardines: entradas con auto estacionado, arbustos junto a las fachadas y cercos vivos. */
+function buildYards(parts, random) {
+  for (const d of DRIVEWAYS) {
+    const z = d.side * (sidewalk.farZ + 1.5);
+    parts.push(paint(box(DRIVEWAY_HALF * 2 - 0.2, 0.03, 3.0, d.x, 0.015, z), 0x8a8680));
+    addParkedCar(parts, { x: d.x, z, yaw: d.yaw, color: d.color });
+  }
+  const nearShrubs = [
+    -30,
+    -27.5,
+    -20.5,
+    -17.5,
+    -14.5,
+    -11.5,
+    ...HOME_SHRUBS,
+    -1.6,
+    1.8,
+    11.2,
+    14.8,
+    24.3,
+    27.6,
+    30.6,
+    33.6,
+  ];
+  const farShrubs = [
+    -31.5, -28, -24.5, -21, -17, -14.6, -6.6, -2.4, 0.6, 3.4, 6.4, 9.6, 19, 22.4, 25.6, 29,
+  ];
+  const shrubZ = housesFrontZ - 0.7;
+  for (const x of nearShrubs) {
+    addShrub(parts, { x, z: shrubZ + (random() - 0.5) * 0.3, scale: 0.8 + random() * 0.5 });
+  }
+  for (const x of farShrubs) {
+    addShrub(parts, { x, z: -shrubZ + (random() - 0.5) * 0.3, scale: 0.8 + random() * 0.5 });
+  }
+  const hedgeZ = sidewalk.farZ + 0.6;
+  addHedge(parts, { fromX: 10.6, toX: 15.4, z: hedgeZ });
+  addHedge(parts, { fromX: -27.6, toX: -22.4, z: hedgeZ });
+  addHedge(parts, { fromX: -0.2, toX: 4.2, z: -hedgeZ });
+  addHedge(parts, { fromX: -32.5, toX: -27.6, z: -hedgeZ });
+}
+
+/**
+ * Postes de luz de madera con sus cables: a lo largo de la vereda de enfrente, dos de
+ * este lado, cruces de calle y bajadas a algunas casas. Devuelve el mesh de los cables.
+ */
+function buildUtilities(parts) {
+  const farZ = -(sidewalk.nearZ + 0.4);
+  const nearZ = sidewalk.nearZ + 0.4;
+  const farPoles = [-36, -16, 4, 24, 44].map((x) => addUtilityPole(parts, { x, z: farZ }));
+  const nearPoles = [-18, 22].map((x) => addUtilityPole(parts, { x, z: nearZ }));
+  const spans = [];
+  const link = (a, b) => {
+    for (let i = 0; i < 3; i += 1) spans.push([a[i], b[i]]);
+  };
+  for (let i = 0; i + 1 < farPoles.length; i += 1) link(farPoles[i], farPoles[i + 1]);
+  link(nearPoles[0], nearPoles[1]);
+  link(farPoles[1], nearPoles[0]);
+  link(farPoles[3], nearPoles[1]);
+  // Bajadas a las casas, desde el aislador del medio hasta arriba de la fachada.
+  const feed = (pole, x, y, z) => spans.push([pole[1], new THREE.Vector3(x, y, z)]);
+  feed(farPoles[1], -16.3, 5.2, -housesFrontZ);
+  feed(farPoles[2], 3.2, 2.7, -housesFrontZ);
+  feed(farPoles[3], 22.2, 5.2, -housesFrontZ);
+  feed(nearPoles[0], -17.8, 2.7, housesFrontZ);
+  feed(nearPoles[1], 20.7, 2.7, housesFrontZ);
+  return buildCables(spans);
+}
+
+/** Banco, tachos, buzones, señales y rejillas del cordón. */
+function buildStreetFurniture(parts) {
+  addBench(parts, { x: BENCH.x, z: BENCH.z, length: BENCH.halfLength * 2 });
+  addTrashBin(parts, { x: 0.3, z: 6.05 });
+  addTrashBin(parts, { x: -14.2, z: -4.1, color: 0x3d3d3d });
+  addTrashBin(parts, { x: 10.2, z: -6.05 });
+  addMailbox(parts, { x: MAILBOX.x, z: MAILBOX.z, facing: -1 });
+  addMailbox(parts, { x: -2.6, z: -(sidewalk.farZ + 0.35), facing: 1, color: 0x2b4a7a });
+  addMailbox(parts, { x: 6.2, z: -(sidewalk.farZ + 0.35), facing: 1 });
+  addRoundSign(parts, { x: SIGN.x, z: SIGN.z });
+  addRoundSign(parts, { x: 16.5, z: -(sidewalk.nearZ + 0.3) });
+  // Rejillas de desagüe en la cara del cordón.
+  const drainZ = sidewalk.nearZ - 0.005;
+  for (const x of [-12, -4, 4, 12]) {
+    parts.push(paint(box(0.7, 0.09, 0.03, x, -0.09, drainZ), 0x1b1d20));
+  }
+  for (const x of [-8, 0, 8]) parts.push(paint(box(0.7, 0.09, 0.03, x, -0.09, -drainZ), 0x1b1d20));
+}
+
+/** Edificios de departamentos detrás de las casas, perdiéndose en la niebla. */
+function buildBackground(parts, random) {
+  for (const block of NEAR_BLOCKS) {
+    addApartmentBlock(parts, { ...block, z: BLOCKS_Z, facing: -1, random });
+  }
+  for (const block of FAR_BLOCKS) {
+    addApartmentBlock(parts, { ...block, z: -BLOCKS_Z, facing: 1, random });
+  }
 }
 
 /** Cerco perpendicular a la calle (a lo largo de Z), mismo estilo que `addFence`. */
@@ -143,8 +317,7 @@ function addFenceAlongZ(parts, x, fromZ, toZ) {
   }
 }
 
-function buildHouses(parts) {
-  const random = seededRandom(11);
+function buildHouses(parts, random) {
   for (const house of NEAR_HOUSES) {
     addHouse(parts, { ...house, frontZ: housesFrontZ, facing: -1, random });
   }
@@ -231,6 +404,10 @@ function buildObstacles() {
   addPost(busStop.x, busStop.z, 0.06);
   for (const lamp of lampPosts) if (lamp.z > 0) addPost(lamp.x, lamp.z, 0.08);
   for (const tree of sidewalkTrees) addPost(tree.x, tree.z, 0.18 * tree.scale);
+  add(BENCH.x - BENCH.halfLength, BENCH.minZ, BENCH.x + BENCH.halfLength, BENCH.maxZ);
+  addPost(SIGN.x, SIGN.z, 0.05);
+  addPost(MAILBOX.x, MAILBOX.z, 0.2);
+  for (const x of HOME_SHRUBS) addPost(x, housesFrontZ - 0.7, 0.45);
   return obstacles;
 }
 
@@ -261,13 +438,18 @@ export function buildStreetScene(reflections) {
   sidewalks.name = 'wet-sidewalks';
   group.add(road, sidewalks, buildLampGlows());
 
+  const random = seededRandom(11);
   const parts = [];
   buildFences(parts);
-  buildHouses(parts);
+  buildHouses(parts, random);
+  buildYards(parts, random);
+  buildBackground(parts, random);
+  buildStreetFurniture(parts);
+  const cables = buildUtilities(parts);
   for (const tree of [...YARD_TREES, ...sidewalkTrees]) addTree(parts, tree);
   for (const lamp of lampPosts) addLampPost(parts, lamp);
   const sign = buildBusStopPole(parts);
 
-  group.add(mergeParts(parts, 'street-landscape'), buildGrass(), sign);
+  group.add(mergeParts(parts, 'street-landscape'), buildGrass(), sign, cables);
   return { group, obstacles: buildObstacles() };
 }

@@ -2,7 +2,21 @@ import * as THREE from 'three';
 import { config } from '../../config.js';
 import { createBusStopSignTexture, createWetGrassTexture } from '../../utils/textures.js';
 import { paint, box, facadePlane, mergeParts, seededRandom } from '../../world/lowPoly.js';
-import { addHouse, addTree, addLampPost, addFence } from '../../world/buildings.js';
+import {
+  addHouse,
+  addTree,
+  addLampPost,
+  addFence,
+  addBarGate,
+  addApartmentBlock,
+  addShrub,
+  addUtilityPole,
+  buildCables,
+  addTrashBin,
+  addRoundSign,
+  addStopSign as addStopRoadSign,
+} from '../../world/buildings.js';
+import { CAR_COLORS, addParkedCar } from '../../world/vehicles.js';
 import { createGlowMaterial, addGlow } from '../../world/glow.js';
 import { road } from './layout.js';
 
@@ -29,6 +43,13 @@ const LEFT_FENCE_Z = road.leftCurbZ - road.sidewalkWidth - 0.05;
 const HOUSE_COLORS = [
   0x9c8f86, 0xb9a58c, 0x8f9aa3, 0xc4b9a3, 0xa88c7a, 0x7f8a7c, 0xb0a89c, 0xbfae94,
 ];
+const BLOCK_COLORS = [0x9a948c, 0x8c8f93, 0xa39b90, 0x8f8a84];
+// Entrada de auto del lado izquierdo (hueco en el cerco, portón y auto estacionado).
+const DRIVEWAY = { fromX: 24.9, toX: 30.1 };
+// Postes de luz del lado izquierdo; el segundo tramo de cable llega al primer poste del
+// tramo de ciudad siguiente (que siempre está a SEGMENT_LENGTH).
+const POLE_XS = [10, 40];
+const POLE_Z = road.leftCurbZ - 0.4;
 
 function addTrafficLight(parts, x, z) {
   const ground = road.sidewalkY;
@@ -45,24 +66,68 @@ function addTrafficLight(parts, x, z) {
   }
 }
 
-/** Casas a lo largo de un lado, entre `fromX` y `toX`. */
-function addHouseRow(parts, random, { fromX, toX, frontZ, facing }) {
+/**
+ * Casas a lo largo de un lado, entre `fromX` y `toX`, con arbustos junto a las fachadas.
+ * Devuelve [{ x, floors }] para enganchar los cables de luz.
+ */
+function addHouseRow(parts, random, { fromX, toX, frontZ, facing, skip = null }) {
+  const houses = [];
   let cursor = fromX;
   while (cursor < toX - 4) {
     const width = 4.6 + random() * 1.2;
     if (cursor + width > toX) break;
+    const x = cursor + width / 2;
+    const floors = random() < 0.45 ? 2 : 1;
     addHouse(parts, {
-      x: cursor + width / 2,
+      x,
       frontZ,
       width,
-      floors: random() < 0.45 ? 2 : 1,
+      floors,
       color: HOUSE_COLORS[Math.floor(random() * HOUSE_COLORS.length)],
       facing,
       groundY: road.sidewalkY,
       random,
     });
+    houses.push({ x, floors });
+    // Uno o dos arbustos por casa, salvo donde está la entrada de auto.
+    for (const dx of [-width * 0.32, width * 0.32]) {
+      const sx = x + dx;
+      if (skip && sx > skip.fromX - 0.5 && sx < skip.toX + 0.5) continue;
+      if (random() < 0.7) {
+        addShrub(parts, {
+          x: sx,
+          z: frontZ - facing * 0.7,
+          scale: 0.8 + random() * 0.5,
+          groundY: road.sidewalkY,
+        });
+      }
+    }
     cursor += width + 0.6 + random() * 1.2;
   }
+  return houses;
+}
+
+/** Postes de luz con cables entre sí (y hacia el tramo siguiente) y bajadas a dos casas. */
+function addUtilities(parts, group, leftHouses) {
+  const ground = road.sidewalkY;
+  const poles = POLE_XS.map((x) => addUtilityPole(parts, { x, z: POLE_Z, groundY: ground }));
+  const next = addUtilityPole([], { x: POLE_XS[0] + SEGMENT_LENGTH, z: POLE_Z, groundY: ground });
+  const spans = [];
+  for (let i = 0; i < 3; i += 1) {
+    spans.push([poles[0][i], poles[1][i]]);
+    spans.push([poles[1][i], next[i]]);
+  }
+  for (const pole of poles) {
+    const poleX = pole[1].x;
+    const house = leftHouses.reduce(
+      (best, h) => (Math.abs(h.x - poleX) < Math.abs(best.x - poleX) ? h : best),
+      leftHouses[0],
+    );
+    if (!house) continue;
+    const y = ground + house.floors * 2.8 - 0.4;
+    spans.push([pole[1], new THREE.Vector3(house.x + 1.2, y, LEFT_FENCE_Z - 2.7)]);
+  }
+  group.add(buildCables(spans));
 }
 
 function createCampusSignTexture(text) {
@@ -171,8 +236,27 @@ function buildSegment(seed, signMaterial, glowMaterial, { campus = false } = {})
       );
     }
     if (!campus) addFence(parts, { fromX: from, toX: to, z: RIGHT_FENCE_Z, groundY: sidewalkTop });
-    addFence(parts, { fromX: from, toX: to, z: LEFT_FENCE_Z, groundY: sidewalkTop });
+    if (from < DRIVEWAY.fromX && to > DRIVEWAY.toX) {
+      // Cerco izquierdo con el hueco de la entrada de auto.
+      addFence(parts, { fromX: from, toX: DRIVEWAY.fromX, z: LEFT_FENCE_Z, groundY: sidewalkTop });
+      addFence(parts, { fromX: DRIVEWAY.toX, toX: to, z: LEFT_FENCE_Z, groundY: sidewalkTop });
+    } else {
+      addFence(parts, { fromX: from, toX: to, z: LEFT_FENCE_Z, groundY: sidewalkTop });
+    }
   }
+  // Entrada de auto: portón de caños cerrado y auto estacionado paralelo a la calle.
+  addBarGate(parts, { ...DRIVEWAY, z: LEFT_FENCE_Z, groundY: sidewalkTop });
+  const drivewayX = (DRIVEWAY.fromX + DRIVEWAY.toX) / 2;
+  parts.push(
+    paint(box(5.0, 0.03, 2.6, drivewayX, sidewalkTop + 0.015, LEFT_FENCE_Z - 1.3), 0x8a8680),
+  );
+  addParkedCar(parts, {
+    x: drivewayX,
+    z: LEFT_FENCE_Z - 1.25,
+    yaw: random() < 0.5 ? 0 : Math.PI,
+    groundY: sidewalkTop,
+    color: CAR_COLORS[Math.floor(random() * CAR_COLORS.length)],
+  });
 
   if (hasCorner) {
     // Calle transversal, senda peatonal y semáforos.
@@ -194,6 +278,20 @@ function buildSegment(seed, signMaterial, glowMaterial, { campus = false } = {})
     }
     addTrafficLight(parts, INTERSECTION.from - 0.6, road.rightCurbZ + 0.4);
     addTrafficLight(parts, INTERSECTION.to + 0.6, road.leftCurbZ - 0.4);
+    // PARE para la calle transversal, en las dos esquinas.
+    const ground = road.sidewalkY;
+    addStopRoadSign(parts, {
+      x: INTERSECTION.to + 0.5,
+      z: road.rightCurbZ + 0.5,
+      groundY: ground,
+      yaw: Math.PI / 2,
+    });
+    addStopRoadSign(parts, {
+      x: INTERSECTION.from - 0.5,
+      z: road.leftCurbZ - 0.5,
+      groundY: ground,
+      yaw: Math.PI / 2,
+    });
   }
 
   // Casas, o la facultad del lado derecho.
@@ -213,8 +311,57 @@ function buildSegment(seed, signMaterial, glowMaterial, { campus = false } = {})
     for (const [from, to] of runs)
       addHouseRow(parts, random, { fromX: from + 1, toX: to - 1, frontZ: rightFront, facing: -1 });
   }
-  for (const [from, to] of runs)
-    addHouseRow(parts, random, { fromX: from + 1, toX: to - 1, frontZ: leftFront, facing: 1 });
+  const leftHouses = runs.flatMap(([from, to]) =>
+    addHouseRow(parts, random, {
+      fromX: from + 1,
+      toX: to - 1,
+      frontZ: leftFront,
+      facing: 1,
+      skip: DRIVEWAY,
+    }),
+  );
+  addUtilities(parts, group, leftHouses);
+
+  // Edificios de departamentos detrás de las casas (del lado de la facultad, solo enfrente).
+  const blockFloors = () => 5 + Math.floor(random() * 3);
+  const blockColor = () => BLOCK_COLORS[Math.floor(random() * BLOCK_COLORS.length)];
+  if (!campus) {
+    for (const [x, width] of [
+      [14, 14],
+      [44, 12],
+    ]) {
+      addApartmentBlock(parts, {
+        x,
+        z: 22,
+        width,
+        floors: blockFloors(),
+        color: blockColor(),
+        facing: -1,
+        groundY: sidewalkTop,
+        random,
+      });
+    }
+  }
+  for (const [x, width] of [
+    [8, 12],
+    [36, 16],
+  ]) {
+    addApartmentBlock(parts, {
+      x,
+      z: -26,
+      width,
+      floors: blockFloors(),
+      color: blockColor(),
+      facing: 1,
+      groundY: sidewalkTop,
+      random,
+    });
+  }
+
+  // Tachos y una señal en las veredas.
+  addTrashBin(parts, { x: 22, z: road.rightCurbZ + 2.6, groundY: sidewalkTop });
+  addTrashBin(parts, { x: 33, z: road.leftCurbZ - 2.6, groundY: sidewalkTop, color: 0x3d3d3d });
+  addRoundSign(parts, { x: 37.5, z: road.rightCurbZ + 0.4, groundY: sidewalkTop });
 
   // Árboles y faroles junto al cordón.
   const stopX = campus ? CAMPUS_STOP_OFFSET : STOP_OFFSET;
