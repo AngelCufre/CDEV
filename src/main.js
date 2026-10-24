@@ -13,6 +13,7 @@ import { BedroomScene } from './scenes/bedroom/BedroomScene.js';
 import { BusStopScene } from './scenes/busStop/BusStopScene.js';
 import { BusRideScene } from './scenes/busRide/BusRideScene.js';
 import { FacultyScene } from './scenes/faculty/FacultyScene.js';
+import { ExamScene } from './scenes/exam/ExamScene.js';
 import { isDebugMode, createDebugTools } from './utils/debug.js';
 
 const canvas = document.getElementById('app-canvas');
@@ -45,13 +46,19 @@ sceneManager.register('habitacion', BedroomScene);
 sceneManager.register('parada', BusStopScene);
 sceneManager.register('colectivo', BusRideScene);
 sceneManager.register('facultad', FacultyScene);
+sceneManager.register('parcial', ExamScene);
 
-// ?escena=parada (o colectivo, o facultad) arranca directo en esa escena, para probar sin
+// ?escena=parada (o colectivo, facultad o parcial) arranca directo en esa escena, para probar sin
 // rehacer las anteriores.
 const requestedScene = params.get('escena');
 const firstScene = sceneManager.has(requestedScene) ? requestedScene : 'habitacion';
 
-const breathing = createBreathing({ input, stats });
+// También se puede respirar leyendo (el parcial borroso se aclara al bajar el estrés).
+const breathing = createBreathing({
+  input,
+  stats,
+  canBreathe: () => input.isLookEnabled || overlay.isNotesOpen,
+});
 const feedback = createStressFeedback({ stats, overlay, audio, post: engine.post });
 const cameraEffects = createCameraEffects({ camera: engine.camera, input, stats });
 
@@ -67,7 +74,7 @@ if (isDebugMode()) {
   debugTools = createDebugTools({
     renderer: engine.renderer,
     getStateMachine: () => sceneManager.currentScene?.narrative?.machine ?? null,
-    sceneNames: ['habitacion', 'parada', 'colectivo', 'facultad'],
+    sceneNames: ['habitacion', 'parada', 'colectivo', 'facultad', 'parcial'],
     goTo: (name) => sceneManager.goTo(name),
     playerStats: stats,
   });

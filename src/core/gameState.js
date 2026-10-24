@@ -6,4 +6,5 @@
 export const gameState = {
   clockMinutes: null, // minutos desde las 00:00
   phoneNotifications: null, // [{ de, texto, hora? }]
+  arrivalMinutes: null, // hora a la que llegó al aula (para el resumen del día)
 };

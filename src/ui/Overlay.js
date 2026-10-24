@@ -310,7 +310,7 @@ export class Overlay {
     el.innerHTML = `
       <div class="summary-card">
         <p class="summary-kicker">Continuará…</p>
-        <h2>Así llegás al parcial</h2>
+        <h2>Así te fue en el parcial</h2>
         <p class="summary-arrival"></p>
         <div class="summary-stats"></div>
         <p class="summary-verdict"></p>
@@ -430,6 +430,18 @@ export class Overlay {
 
   closeNotes() {
     this.notesViewer.classList.remove('visible');
+    this.setNotesBlur(0);
+  }
+
+  get isNotesOpen() {
+    return this.notesViewer.classList.contains('visible');
+  }
+
+  /** Desenfoca la hoja del visor (`px` en píxeles de pantalla; 0 la deja nítida). */
+  setNotesBlur(px) {
+    const value = px > 0.05 ? `blur(${px.toFixed(2)}px)` : '';
+    const img = this.notesViewer.querySelector('.notes-page img');
+    if (img.style.filter !== value) img.style.filter = value;
   }
 
   /** Hoja del visor que se está mirando (0 = la primera). */

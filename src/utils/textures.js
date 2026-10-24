@@ -501,3 +501,164 @@ export function createBusCrowdTexture() {
   texture.wrapS = THREE.RepeatWrapping;
   return texture;
 }
+
+/** Pizarrón verde con lo escrito en tiza (`lines`: [{ text, size }]) y manchas de borrador. */
+export function createChalkboardTexture(lines) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 384;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#2f4a3c';
+  ctx.fillRect(0, 0, 1024, 384);
+  // Manchas de borrador: pasadas anchas y apenas más claras.
+  for (let i = 0; i < 14; i += 1) {
+    ctx.fillStyle = `rgba(220, 230, 220, ${0.03 + Math.random() * 0.04})`;
+    ctx.beginPath();
+    ctx.ellipse(
+      Math.random() * 1024,
+      Math.random() * 384,
+      90 + Math.random() * 160,
+      25 + Math.random() * 40,
+      (Math.random() - 0.5) * 0.4,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(236, 236, 228, 0.92)';
+  ctx.textAlign = 'center';
+  let y = 74;
+  for (const { text, size = 46 } of lines) {
+    ctx.font = `${size}px "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive`;
+    ctx.fillText(text, 512, y);
+    y += size * 1.45;
+  }
+  // Polvo de tiza encima del texto, para que no se vea como letra de computadora.
+  for (let i = 0; i < 2500; i += 1) {
+    ctx.fillStyle = `rgba(47, 74, 60, ${Math.random() * 0.5})`;
+    ctx.fillRect(Math.random() * 1024, Math.random() * 384, 2, 2);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/**
+ * Reloj de pared: devuelve la textura y `setTime(minutos)`, que redibuja las agujas.
+ * Solo se redibuja cuando cambia el minuto (lo controla quien lo usa).
+ */
+export function createWallClockTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const c = size / 2;
+
+  function hand(angle, length, width, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(c - Math.sin(angle) * 14, c + Math.cos(angle) * 14);
+    ctx.lineTo(c + Math.sin(angle) * length, c - Math.cos(angle) * length);
+    ctx.stroke();
+  }
+
+  function setTime(totalMinutes) {
+    ctx.fillStyle = '#f4f1e8';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#1d1d1f';
+    for (let i = 0; i < 60; i += 1) {
+      const angle = (i / 60) * Math.PI * 2;
+      const long = i % 5 === 0;
+      const inner = long ? 96 : 108;
+      ctx.save();
+      ctx.translate(c, c);
+      ctx.rotate(angle);
+      ctx.fillRect(long ? -4 : -1.5, -118, long ? 8 : 3, 118 - inner);
+      ctx.restore();
+    }
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let h = 1; h <= 12; h += 1) {
+      const angle = (h / 12) * Math.PI * 2;
+      ctx.fillText(String(h), c + Math.sin(angle) * 78, c - Math.cos(angle) * 78);
+    }
+    const minutes = totalMinutes % 60;
+    const hours = (totalMinutes / 60) % 12;
+    hand((hours / 12) * Math.PI * 2, 56, 9, '#1d1d1f');
+    hand((minutes / 60) * Math.PI * 2, 88, 6, '#1d1d1f');
+    ctx.fillStyle = '#b3261e';
+    ctx.beginPath();
+    ctx.arc(c, c, 7, 0, Math.PI * 2);
+    ctx.fill();
+    texture.needsUpdate = true;
+  }
+
+  setTime(8 * 60);
+  return { texture, setTime };
+}
+
+/** Tela floreada de muchos colores (el vestido de la profesora). Se repite sin cortes. */
+export function createFloralFabricTexture() {
+  const size = 256;
+  const canvas = makeCanvas(size);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#2c4f7c';
+  ctx.fillRect(0, 0, size, size);
+  const petals = ['#f2b33d', '#e85d75', '#f7f1e3', '#b77fd6', '#ef7d3c', '#66c2b0', '#f28fb1'];
+  const leaf = '#4f8a4a';
+  // Cada flor se dibuja también desplazada un tamaño de textura, así el borde empalma.
+  const drawWrapped = (x, y, draw) => {
+    for (const dx of [-size, 0, size]) {
+      for (const dy of [-size, 0, size]) draw(x + dx, y + dy);
+    }
+  };
+  for (let i = 0; i < 46; i += 1) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const r = 7 + Math.random() * 10;
+    const color = petals[Math.floor(Math.random() * petals.length)];
+    const rotation = Math.random() * Math.PI;
+    drawWrapped(x, y, (fx, fy) => {
+      ctx.fillStyle = leaf;
+      for (const side of [1, -1]) {
+        ctx.beginPath();
+        ctx.ellipse(
+          fx + side * r * 1.2,
+          fy + r * 0.6,
+          r * 0.7,
+          r * 0.3,
+          side * 0.6,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+      ctx.fillStyle = color;
+      for (let p = 0; p < 5; p += 1) {
+        const angle = rotation + (p / 5) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.ellipse(
+          fx + Math.cos(angle) * r * 0.6,
+          fy + Math.sin(angle) * r * 0.6,
+          r * 0.55,
+          r * 0.38,
+          angle,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+      ctx.fillStyle = '#ffd84a';
+      ctx.beginPath();
+      ctx.arc(fx, fy, r * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  return finalize(canvas, 1);
+}

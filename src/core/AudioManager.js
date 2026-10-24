@@ -344,6 +344,74 @@ export class AudioManager {
     this._playOneShot(noise, gain, 1.4);
   }
 
+  /** Ráfaga de viento que entra por la ventana: ruido que sube y baja de tono. */
+  playWind() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 0.9;
+    band.frequency.setValueAtTime(280, now);
+    band.frequency.exponentialRampToValueAtTime(950, now + 0.7);
+    band.frequency.exponentialRampToValueAtTime(320, now + 2.2);
+    const gain = ctx.createGain();
+    const volume = config.audio.volumenViento;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + 0.45);
+    gain.gain.exponentialRampToValueAtTime(volume * 0.6, now + 1.3);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+    noise.connect(band);
+    band.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 2.5);
+  }
+
+  /** Lapicera que cae al piso: dos o tres "clic" agudos que se apagan rápido. */
+  playPenDrop() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    for (const [start, level] of [
+      [0, 1],
+      [0.11, 0.45],
+      [0.19, 0.2],
+    ]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(2600 + Math.random() * 900, now + start);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.setValueAtTime(config.audio.volumenObjetos * level, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + 0.05);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      this._playOneShot(osc, gain, start + 0.08);
+    }
+  }
+
+  /** Papel que se levanta o se mueve: un roce corto de ruido agudo. */
+  playPaper() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 2200;
+    const gain = ctx.createGain();
+    const volume = config.audio.volumenObjetos * 0.6;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.03);
+    gain.gain.linearRampToValueAtTime(volume * 0.4, now + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    noise.connect(highpass);
+    highpass.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 0.3, Math.random());
+  }
+
   /**
    * Sonido continuo de un vehículo (motor + neumáticos sobre agua) como audio
    * posicional: hay que agregar `audio` al objeto del vehículo para que se escuche

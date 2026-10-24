@@ -21,6 +21,7 @@ export function createFacultyNarrative({
   stats,
   interaction,
   floors,
+  onEntered,
 }) {
   const facultad = config.facultad;
   const movement = createPlayerMovement({ camera, input, collision: floors });
@@ -114,7 +115,7 @@ export function createFacultyNarrative({
       },
     },
 
-    // Llegó a la puerta: pide permiso, fundido y resumen del día (por ahora, el final).
+    // Llegó a la puerta: pide permiso, fundido y pasa al parcial (escena 5).
     ENTERING: {
       onEnter(ctx) {
         ctx.timer = 0;
@@ -126,12 +127,13 @@ export function createFacultyNarrative({
         showTimedText(ctx, facultad.textos.puertaAula, 2);
         gameState.clockMinutes = phone.minutes;
         gameState.phoneNotifications = phone.notifications;
+        gameState.arrivalMinutes = phone.minutes;
       },
       onUpdate(delta, ctx) {
         ctx.timer += delta;
         if (!ctx.faded && ctx.timer >= 1.8) {
           ctx.faded = true;
-          overlay.showFadeToBlack('Continuará…', stats.sceneDeltas());
+          overlay.showFadeToBlack(config.parcial.textoFundidoEntrada, stats.sceneDeltas());
         }
         if (ctx.timer >= 4.3) ctx.machine.transition('END');
       },
@@ -140,9 +142,7 @@ export function createFacultyNarrative({
     END: {
       onEnter() {
         audio.stopAll();
-        // Suelta el mouse para poder usar el botón "Volver a jugar".
-        input.unlock();
-        overlay.showDaySummary(stats.summary({ arrivalMinutes: gameState.clockMinutes }));
+        onEntered();
       },
     },
   };

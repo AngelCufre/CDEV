@@ -198,6 +198,57 @@ export const config = {
     },
   },
 
+  // --- Escena 5: el parcial, en el aula 500 ---
+  parcial: {
+    textoFundidoEntrada: 'La profesora te da el parcial…',
+    // Solo si se arranca directo con ?escena=parcial; si no, sigue la hora de la facultad.
+    horaInicio: '08:22',
+    horaEntrega: '10:00',
+    // Aunque se llegue muy tarde, el parcial dura al menos esto (minutos de juego).
+    minutosMinimos: 20,
+    segundosPorMinuto: 2,
+    // Cuándo pasa cada cosa, como fracción del tiempo que dura el parcial.
+    rafagas: [
+      { en: 0.22, hojas: 1 },
+      { en: 0.6, hojas: 2 },
+    ],
+    lapiceraEn: 0.42,
+    // Avisos de la profesora, por minutos que faltan para la entrega.
+    avisos: [
+      { faltan: 30, texto: '—Queda media hora.', evento: 'quedaMediaHora' },
+      { faltan: 10, texto: '—¡Diez minutos!', evento: 'quedanDiez' },
+    ],
+    // Mensajes que llegan durante el parcial (el celular vibra en el bolsillo).
+    notificaciones: [
+      { hora: '08:40', de: 'Mamá', texto: '¿Llegaste? ¿Cómo te está yendo? 🙏' },
+      { hora: '09:15', de: 'Grupo Parcial', texto: 'El 3 es imposible 💀' },
+      { hora: '09:45', de: 'Grupo Parcial', texto: 'Yo ya entregué, te espero afuera' },
+    ],
+    // La profesora camina entre los bancos (m/s) y se para cada tanto adelante.
+    profesora: {
+      velocidad: 0.7,
+      pausaAdelanteSegundos: 5,
+      distanciaMira: 1.4,
+      distanciaCelular: 3.2,
+    },
+    // Desenfoque del parcial con estrés: arranca en `desde` y llega a `maximoPx` en 100.
+    // La preparación lo atenúa (lo que repasaste, te suena).
+    desenfoque: { desde: 35, maximoPx: 5, atenuaPreparacion: 0.5 },
+    // Estrés por segundo mientras corre el reloj, que crece hacia el final.
+    estresPorSegundo: 0.05,
+    textos: {
+      inicio: 'Aula 500. El parcial está sobre el banco.',
+      rafaga: '¡Una ráfaga de viento!',
+      lapicera: 'Se te cayó la lapicera…',
+      sinHojas: 'No tenés hojas en el banco: levantalas del piso.',
+      celular: '—¡Ese celular se guarda!',
+      fin: '—Se terminó el tiempo. Entreguen, por favor.',
+      entrega: '—Gracias. Pueden retirarse.',
+      faltanHojas: '—¿Y la otra hoja?',
+    },
+    textoFinal: 'Entregado.',
+  },
+
   // --- Stats del jugador (HUD arriba a la derecha) ---
   // Valores de 0 a 100. Los eventos suman o restan de golpe (con aviso en el HUD); los
   // ritmos cambian de a poco, por segundo real.
@@ -208,6 +259,7 @@ export const config = {
       parada: 'La parada',
       colectivo: 'El colectivo',
       facultad: 'La facultad',
+      parcial: 'El parcial',
     },
     // Nervios por la hora: estrés por segundo desde que sabe que llega tarde. Se
     // multiplica por (1 + minutos de atraso / minutosParaDuplicar), con hasta 20 min.
@@ -254,6 +306,15 @@ export const config = {
       bedelia: { estres: 3, texto: 'Bedelía cerrada' },
       directorio: { estres: 4, texto: '¿Y la 500?' },
       pisoEquivocado: { estres: 6, texto: 'Subiste al piso equivocado' },
+      rafaga: { estres: 6, texto: 'El viento te voló las hojas' },
+      hojaLevantada: { estres: -1, texto: 'Levantaste la hoja' },
+      lapiceraCaida: { estres: 3, texto: 'Se te cayó la lapicera' },
+      profeMira: { estres: 2, texto: 'La profesora te mira' },
+      celularEnParcial: { estres: 10, texto: 'Te vieron con el celular' },
+      quedaMediaHora: { estres: 3, texto: 'Queda media hora' },
+      quedanDiez: { estres: 6, texto: 'Quedan diez minutos' },
+      noLlegaste: { estres: 5, texto: 'No llegaste a terminar' },
+      entregaIncompleta: { estres: 8, texto: 'Entregaste sin todas las hojas' },
     },
     // Pantalla final: "chances de aprobar" a partir de los stats y la hora de llegada.
     evaluacion: {
@@ -267,9 +328,9 @@ export const config = {
     // Frases del resumen final: para cada stat, la primera cuyo `desde` alcanza.
     veredictos: {
       estres: [
-        { desde: 80, texto: 'Llegás con el corazón en la boca' },
-        { desde: 50, texto: 'Llegás con los nervios de punta' },
-        { desde: 0, texto: 'Llegás con una calma sorprendente' },
+        { desde: 80, texto: 'Rendiste con el corazón en la boca' },
+        { desde: 50, texto: 'Rendiste con los nervios de punta' },
+        { desde: 0, texto: 'Rendiste con una calma sorprendente' },
       ],
       mojado: [
         { desde: 60, texto: 'chorreando agua sobre la hoja del parcial' },
@@ -277,7 +338,7 @@ export const config = {
         { desde: 0, texto: 'casi seco, de milagro' },
       ],
       preparacion: [
-        { desde: 60, texto: 'Pero repasaste: algo te va a salir.' },
+        { desde: 60, texto: 'Pero habías repasado: algo te salió.' },
         { desde: 35, texto: 'Y con un repaso a medias.' },
         { desde: 0, texto: 'Y sin haber repasado casi nada.' },
       ],
@@ -327,5 +388,7 @@ export const config = {
     volumenSalpicadura: 0.5,
     volumenVibracion: 0.25,
     volumenRespiracion: 0.12,
+    volumenViento: 0.35,
+    volumenObjetos: 0.3, // lapicera, papeles
   },
 };

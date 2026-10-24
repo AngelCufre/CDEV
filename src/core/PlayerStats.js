@@ -120,7 +120,11 @@ export class PlayerStats {
   }
 
   /** Lo que muestra la pantalla final: hora de llegada, stats, veredicto y momentos. */
-  summary({ arrivalMinutes }) {
+  /**
+   * `penalty`: puntos que se restan a las chances de aprobar por lo que pasó en el
+   * parcial (por ejemplo, entregar sin alguna hoja).
+   */
+  summary({ arrivalMinutes, penalty = 0 }) {
     const { estres, mojado, preparacion } = this.values;
     const { evaluacion, veredictos } = config.stats;
     const late = Math.max(0, Math.floor(arrivalMinutes) - parseTime(config.narrative.horaParcial));
@@ -129,7 +133,8 @@ export class PlayerStats {
       preparacion * evaluacion.pesoPreparacion +
       (100 - estres) * evaluacion.pesoCalma +
       (100 - mojado) * evaluacion.pesoSeco -
-      Math.max(0, late - evaluacion.toleranciaMinutos) * evaluacion.penalidadPorMinuto;
+      Math.max(0, late - evaluacion.toleranciaMinutos) * evaluacion.penalidadPorMinuto -
+      penalty;
 
     // Los eventos que más movieron los stats, en el orden en que pasaron.
     const magnitude = (entry) =>

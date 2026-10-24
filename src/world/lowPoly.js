@@ -17,14 +17,15 @@ const _normal = new THREE.Vector3();
 /**
  * Convierte la geometría a no indexada (requisito para fusionar tipos mezclados) y le
  * agrega vertex colors con luz difusa de cielo nublado. `shaded: false` deja el color
- * plano, para cosas que "emiten" luz (ventanas encendidas, faroles, faros).
+ * plano, para cosas que "emiten" luz (ventanas encendidas, faroles, faros). `keepUv`
+ * conserva las UV, para piezas con textura (por ejemplo, una tela estampada).
  */
-export function paint(geometry, hex, { shaded = true } = {}) {
+export function paint(geometry, hex, { shaded = true, keepUv = false } = {}) {
   const geo = geometry.index ? geometry.toNonIndexed() : geometry;
   if (geo !== geometry) geometry.dispose();
   // Sin texturas: las UV no se usan, y así todas las piezas tienen los mismos atributos
   // para fusionarse (algunas, como las de `taperTop`, no las traen).
-  if (geo.attributes.uv) geo.deleteAttribute('uv');
+  if (geo.attributes.uv && !keepUv) geo.deleteAttribute('uv');
 
   const normals = geo.attributes.normal;
   const colors = new Float32Array(normals.count * 3);

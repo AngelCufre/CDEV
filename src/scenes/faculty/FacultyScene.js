@@ -14,8 +14,9 @@ import { hall } from './layout.js';
  * recorre el hall y el pasillo lleno de gente; la escalera es un desvío.
  */
 export class FacultyScene {
-  constructor({ engine, input, audio, overlay, stats }) {
+  constructor({ engine, input, audio, overlay, stats, goTo }) {
     this.engine = engine;
+    this.goTo = goTo;
     this.input = input;
     this.audio = audio;
     this.overlay = overlay;
@@ -94,6 +95,7 @@ export class FacultyScene {
       stats: this.stats,
       interaction: this.interaction,
       floors: this.floors,
+      onEntered: () => this.goTo('parcial'),
     });
 
     this._unsubscribers.push(
