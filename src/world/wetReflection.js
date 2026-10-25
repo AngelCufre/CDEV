@@ -44,6 +44,11 @@ const fragmentShader = /* glsl */ `
   uniform float uStreak;
   uniform float uDistortion;
   uniform float uTime;
+  #ifdef USE_PAVING_MAP
+    uniform sampler2D uMap;
+    uniform float uMapScale;
+    uniform vec2 uMapRotation;
+  #endif
   varying vec4 vReflectionCoord;
   varying vec3 vWorldPosition;
   varying vec3 vBaseColor;
@@ -69,6 +74,17 @@ const fragmentShader = /* glsl */ `
   void main() {
     // Mojado, el piso se ve más oscuro.
     vec3 base = uColor * vBaseColor * uDarken;
+    #ifdef USE_PAVING_MAP
+      // Textura de baldosas o adoquines en coordenadas de mundo (sin UV), girada.
+      vec2 xz = vWorldPosition.xz;
+      vec2 paving = vec2(
+        xz.x * uMapRotation.x - xz.y * uMapRotation.y,
+        xz.x * uMapRotation.y + xz.y * uMapRotation.x
+      );
+      base *= texture2D(uMap, paving / uMapScale).rgb;
+      // Manchones de humedad de varios metros: que no se note la repetición.
+      base *= 0.86 + 0.28 * valueNoise(xz * 0.3);
+    #endif
     vec3 color = base;
 
     if (uReflectivity > 0.0 && vFacingUp > 0.0) {
@@ -149,7 +165,9 @@ export class WetReflection {
    * Mesh mojado sobre este plano. Toma los colores por vértice de la geometría si los
    * tiene (los de `paint`). Opciones: `reflectivity` (0..1), `darken` (cuánto oscurece el
    * agua el color base), `streak` (largo de la estela), `distortion` (temblor), `color`
-   * y propiedades extra de material (por ejemplo `polygonOffset`).
+   * y propiedades extra de material (por ejemplo `polygonOffset`). `map` es una textura
+   * de piso (baldosas, adoquines) que se aplica por coordenadas de mundo: una repetición
+   * cada `mapScale` metros, girada `mapRotation` radianes.
    */
   createSurface(
     geometry,
@@ -160,6 +178,9 @@ export class WetReflection {
       streak = 0.05,
       distortion = 0.01,
       color = 0xffffff,
+      map = null,
+      mapScale = 1,
+      mapRotation = 0,
       ...materialOptions
     } = {},
   ) {
@@ -173,7 +194,11 @@ export class WetReflection {
         uDarken: { value: darken },
         uStreak: { value: streak },
         uDistortion: { value: distortion },
+        uMap: { value: map },
+        uMapScale: { value: mapScale },
+        uMapRotation: { value: new THREE.Vector2(Math.cos(mapRotation), Math.sin(mapRotation)) },
       },
+      defines: map ? { USE_PAVING_MAP: '' } : {},
       vertexShader,
       fragmentShader,
       vertexColors: geometry.attributes.color !== undefined,

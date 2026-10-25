@@ -447,7 +447,7 @@ function buildOutside(parts, group) {
 }
 
 /**
- * Arma el aula 500. Devuelve el grupo, el reloj de pared (`clock.setTime(minutos)`) y la
+ * Arma el aula 411. Devuelve el grupo, el reloj de pared (`clock.setTime(minutos)`) y la
  * lluvia de afuera (para actualizarla cada frame).
  */
 export function buildClassroom({ maxAnisotropy }) {

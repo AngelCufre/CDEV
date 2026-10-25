@@ -95,6 +95,63 @@ export function facadePlane(w, h, x, y, z, facing = 1) {
   return geo;
 }
 
+// Perfil trapezoidal de la chapa: valle, flanco, cresta, flanco (fracciones del paso).
+const CORRUGATION = [
+  [0, 0],
+  [0.3, 1],
+  [0.5, 1],
+  [0.8, 0],
+  [1, 0],
+];
+
+/**
+ * Chapa trapezoidal de `length` × `height`, centrada en el origen y mirando a +z.
+ * `ribs: 'vertical'` (las ondas suben, como un revestimiento de fachada) u 'horizontal'
+ * (corren a lo largo, como una persiana). Cada faceta es plana, así `paint` le da su luz
+ * y las ondas se leen sin textura.
+ */
+export function corrugatedPanel(
+  length,
+  height,
+  { ribs = 'vertical', pitch = 0.2, depth = 0.04 } = {},
+) {
+  const vertical = ribs === 'vertical';
+  const span = vertical ? length : height;
+  const count = Math.max(1, Math.round(span / pitch));
+  const step = span / count;
+  const points = [];
+  for (let i = 0; i < count; i += 1) {
+    for (const [t, out] of i === 0 ? CORRUGATION : CORRUGATION.slice(1)) {
+      points.push([(i + t) * step - span / 2, out * depth]);
+    }
+  }
+  const positions = [];
+  const hl = length / 2;
+  const hh = height / 2;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const [s0, o0] = points[i];
+    const [s1, o1] = points[i + 1];
+    const quad = vertical
+      ? [
+          [s0, -hh, o0],
+          [s1, -hh, o1],
+          [s1, hh, o1],
+          [s0, hh, o0],
+        ]
+      : [
+          [-hl, s0, o0],
+          [hl, s0, o0],
+          [hl, s1, o1],
+          [-hl, s1, o1],
+        ];
+    positions.push(...quad[0], ...quad[1], ...quad[2], ...quad[0], ...quad[2], ...quad[3]);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /** Fusiona geometrías pintadas con `paint` en una sola (y libera las originales). */
 export function mergePartsGeometry(parts) {
   const merged = mergeGeometries(parts);

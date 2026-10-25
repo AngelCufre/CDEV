@@ -371,13 +371,36 @@ export function addApartmentBlock(
   }
 }
 
-/** Árbol low-poly: pino (cono) o redondo (icosaedro facetado). */
+/**
+ * Árbol low-poly: pino (cono), redondo (icosaedro facetado), ciprés (copa angosta y muy
+ * alta) o cedro (pisos de follaje que se achican hacia arriba, un poco desparejos).
+ */
 export function addTree(parts, { x, z, type, scale, groundY = 0 }) {
   const s = scale;
   const trunkHeight = 1.4 * s;
   const trunk = new THREE.CylinderGeometry(0.12 * s, 0.16 * s, trunkHeight, 10);
   trunk.translate(x, groundY + trunkHeight / 2, z);
   parts.push(paint(trunk, 0x3d3128));
+
+  const seed = x * 3.1 + z * 1.7;
+  if (type === 'cypress') {
+    const crown = lowPolyCrown(1, seed, 0.16);
+    crown.scale(0.95 * s, 3.4 * s, 0.95 * s);
+    crown.translate(x, groundY + trunkHeight * 0.4 + 3.2 * s, z);
+    parts.push(paint(crown, 0x2b4128));
+    return;
+  }
+  if (type === 'cedar') {
+    for (let i = 0; i < 4; i += 1) {
+      const radius = (1.7 - i * 0.33) * s;
+      const crown = lowPolyCrown(radius, seed + i * 7.3, 0.34);
+      crown.scale(1, 0.5, 1);
+      const sway = Math.sin(seed + i * 2.1) * 0.25 * s;
+      crown.translate(x + sway, groundY + trunkHeight + (0.4 + i * 1.05) * s, z - sway * 0.6);
+      parts.push(paint(crown, i % 2 === 0 ? 0x2f4a2c : 0x35532f));
+    }
+    return;
+  }
 
   let foliage;
   if (type === 'pine') {

@@ -226,7 +226,8 @@ export class AudioManager {
     lowpass.frequency.value = exterior ? 7500 : 4000;
 
     const gain = ctx.createGain();
-    gain.gain.value = exterior ? config.audio.volumenLluviaExterior : config.audio.volumenLluvia;
+    const volume = exterior ? config.audio.volumenLluviaExterior : config.audio.volumenLluvia;
+    gain.gain.value = volume;
 
     noise.connect(highpass);
     highpass.connect(lowpass);
@@ -234,7 +235,24 @@ export class AudioManager {
     gain.connect(ctx.destination);
     noise.start();
 
-    this._activeVoices.set('rain', { osc: noise, gain });
+    this._activeVoices.set('rain', {
+      osc: noise,
+      gain,
+      lowpass,
+      volume,
+      cutoff: lowpass.frequency.value,
+      muffled: false,
+    });
+  }
+
+  /** Bajo techo y entre paredes, la lluvia de afuera se escucha más baja y apagada. */
+  setRainMuffled(muffled) {
+    const voice = this._activeVoices.get('rain');
+    if (!voice || voice.muffled === muffled) return;
+    voice.muffled = muffled;
+    const now = this.context.currentTime;
+    voice.lowpass.frequency.setTargetAtTime(muffled ? 1800 : voice.cutoff, now, 0.35);
+    voice.gain.gain.setTargetAtTime(muffled ? voice.volume * 0.4 : voice.volume, now, 0.35);
   }
 
   stopRain() {

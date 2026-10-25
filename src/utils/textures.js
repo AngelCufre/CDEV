@@ -95,6 +95,131 @@ export function createTileFloorTexture() {
   return finalize(canvas, 1);
 }
 
+/**
+ * Adoquines de hormigón en espina de pez (20 × 10 cm), como los del patio central de la
+ * facultad. La repetición mide 16 × 16 medios adoquines (1,6 m). El patrón son losetas en
+ * L (un adoquín acostado y uno parado) que se repiten cada (1, 1) y (2, −2); en la
+ * repetición entran 64, y se dibuja cada una con sus copias corridas un período, así la
+ * textura empalma sin costuras. Cada adoquín tiene su tono, entre rojizo y gris.
+ */
+export function createHerringboneTexture() {
+  const size = 1024;
+  const units = 16;
+  const unit = size / units;
+  const canvas = makeCanvas(size);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#4b423c'; // juntas con arena oscura
+  ctx.fillRect(0, 0, size, size);
+
+  const gap = 3;
+  const bevel = 4;
+  const brick = (x, y, w, h) => {
+    const red = Math.random();
+    const value = 0.82 + Math.random() * 0.3;
+    const r = Math.round((128 + red * 30) * value);
+    const g = Math.round((108 + red * 4) * value);
+    const b = Math.round((100 - red * 6) * value);
+    for (const ox of [-units, 0, units]) {
+      for (const oy of [-units, 0, units]) {
+        const px = (x + ox) * unit + gap / 2;
+        const py = (y + oy) * unit + gap / 2;
+        const pw = w * unit - gap;
+        const ph = h * unit - gap;
+        if (px > size || py > size || px + pw < 0 || py + ph < 0) continue;
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(px, py, pw, ph);
+        // Canto gastado: más claro de un lado y más oscuro del otro.
+        ctx.fillStyle = 'rgba(255, 240, 225, 0.12)';
+        ctx.fillRect(px, py, pw, bevel);
+        ctx.fillRect(px, py, bevel, ph);
+        ctx.fillStyle = 'rgba(20, 10, 5, 0.18)';
+        ctx.fillRect(px, py + ph - bevel, pw, bevel);
+        ctx.fillRect(px + pw - bevel, py, bevel, ph);
+      }
+    }
+  };
+  for (let p = 0; p < 8; p += 1) {
+    for (let q = 0; q < 8; q += 1) {
+      const x = (((p + 2 * q) % units) + units) % units;
+      const y = (((p - 2 * q) % units) + units) % units;
+      brick(x, y, 2, 1);
+      brick(x, y + 1, 1, 2);
+    }
+  }
+  // Grano del hormigón y alguna mancha.
+  for (let i = 0; i < 9000; i += 1) {
+    const v = Math.random() < 0.5 ? 40 : 220;
+    ctx.fillStyle = `rgba(${v}, ${v - 10}, ${v - 20}, ${0.06 + Math.random() * 0.1})`;
+    const s = 1 + Math.random() * 2;
+    ctx.fillRect(Math.random() * size, Math.random() * size, s, s);
+  }
+  return finalize(canvas, 1);
+}
+
+/**
+ * Losetas cuadradas de hormigón (senderos y veredas): `count` × `count` por repetición,
+ * cada una con su tono, grano y alguna mancha, con las juntas marcadas. `weeds` agrega
+ * pasto creciendo en las juntas, como en el sendero de la entrada.
+ */
+export function createSlabTexture({
+  count = 4,
+  base = [168, 165, 158],
+  variation = 16,
+  joint = 'rgba(58, 56, 52, 0.85)',
+  weeds = false,
+} = {}) {
+  const size = 512;
+  const canvas = makeCanvas(size);
+  const ctx = canvas.getContext('2d');
+  const slab = size / count;
+  for (let row = 0; row < count; row += 1) {
+    for (let col = 0; col < count; col += 1) {
+      const shade = (Math.random() - 0.5) * variation;
+      const [r, g, b] = base.map((c) => Math.round(c + shade));
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(col * slab, row * slab, slab, slab);
+      // Mancha de humedad adentro de la loseta (sin tocar el borde de la textura).
+      if (Math.random() < 0.5) {
+        const cx = col * slab + slab * (0.3 + Math.random() * 0.4);
+        const cy = row * slab + slab * (0.3 + Math.random() * 0.4);
+        const radius = slab * (0.15 + Math.random() * 0.2);
+        const blob = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        blob.addColorStop(0, 'rgba(40, 38, 34, 0.18)');
+        blob.addColorStop(1, 'rgba(40, 38, 34, 0)');
+        ctx.fillStyle = blob;
+        ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+      }
+    }
+  }
+  for (let i = 0; i < 6000; i += 1) {
+    const v = Math.random() < 0.55 ? 70 : 225;
+    ctx.fillStyle = `rgba(${v}, ${v}, ${v - 6}, ${0.08 + Math.random() * 0.12})`;
+    const s = 1 + Math.random() * 1.5;
+    ctx.fillRect(Math.random() * size, Math.random() * size, s, s);
+  }
+  // Juntas: media junta en cada borde, así empalman al repetir.
+  ctx.fillStyle = joint;
+  for (let i = 0; i <= count; i += 1) {
+    ctx.fillRect(i * slab - 2, 0, 4, size);
+    ctx.fillRect(0, i * slab - 2, size, 4);
+  }
+  if (weeds) {
+    ctx.strokeStyle = 'rgba(78, 104, 52, 0.85)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 900; i += 1) {
+      const alongX = Math.random() < 0.5;
+      const line = Math.floor(Math.random() * count) * slab;
+      const t = Math.random() * size;
+      const [x, y] = alongX ? [t, line] : [line, t];
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (Math.random() - 0.5) * 6, y + (Math.random() - 0.5) * 6);
+      ctx.stroke();
+    }
+  }
+  return finalize(canvas, 1);
+}
+
 /** Madera clara para muebles (escritorio, mesa de luz). */
 export function createWoodTexture(colorBase = '#8a5a34') {
   const size = 128;

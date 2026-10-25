@@ -9,10 +9,10 @@ export const config = {
   narrative: {
     horaParcial: '08:00',
     horaDespertar: '07:52',
-    aula: 'Aula 500',
+    aula: 'Aula 411',
     notificaciones: [
       '¿Dónde estás? Ya empezó a tomar lista.',
-      'Parcial de hoy, Aula 500 — 8:00 hs.',
+      'Parcial de hoy, Aula 411 — 8:00 hs.',
       '3 llamadas perdidas de Mamá',
     ],
   },
@@ -74,7 +74,7 @@ export const config = {
     // Ya estaban en el celular desde la habitación (las mismas de la escena 1).
     notificacionesPrevias: [
       { de: 'Grupo Parcial', texto: '¿Dónde estás? Ya empezó a tomar lista.' },
-      { de: 'Calendario', texto: 'Parcial de hoy, Aula 500 — 8:00 hs.' },
+      { de: 'Calendario', texto: 'Parcial de hoy, Aula 411 — 8:00 hs.' },
       { de: 'Teléfono', texto: '3 llamadas perdidas de Mamá' },
     ],
     // Llegan al celular cuando el reloj de juego marca esa hora.
@@ -167,38 +167,94 @@ export const config = {
     ],
   },
 
-  // --- Escena 4: adentro del Edificio Gallardo (BOCETO: salvo el aula 500 en planta baja,
-  // el edificio todavía es inventado) ---
+  // --- Escena 4: la UTN FRC, del acceso de autos al aula 411 (armada a partir de fotos del
+  // patio y del plano del predio) ---
   facultad: {
     textoFundidoEntrada: 'Corriendo bajo la lluvia…',
     // Solo si se arranca directo con ?escena=facultad; si no, sigue la hora del colectivo.
     horaInicio: '08:12',
-    segundosPorMinuto: 8,
-    aula: 'aula 500',
+    // El recorrido es largo (del estacionamiento al fondo del patio): el reloj va un poco
+    // más lento que en el colectivo.
+    segundosPorMinuto: 10,
+    aula: 'aula 411',
+    // El campus es grande: la cámara ve hasta acá (las otras escenas, config.player.far).
+    distanciaVision: 140,
+    niebla: { cerca: 30, lejos: 125 },
     // Según qué tan mojado llega (stat "mojado"): se usa el primero cuyo `desde` alcanza.
     textosLlegada: [
-      { desde: 60, texto: 'Empapado… pero llegaste.' },
-      { desde: 30, texto: 'Con la ropa mojada… pero llegaste.' },
-      { desde: 0, texto: 'Casi sin mojarte… y llegaste.' },
+      { desde: 60, texto: 'Empapado… pero llegaste a la facu.' },
+      { desde: 30, texto: 'Con la ropa mojada… pero llegaste a la facu.' },
+      { desde: 0, texto: 'Casi sin mojarte… y llegaste a la facu.' },
     ],
     // A los segundos de entrar escribe el grupo (no depende de la hora, para que llegue
     // aunque se haya tardado en el colectivo).
     mensajeAlEntrarSegundos: 3,
-    mensajeAlEntrar: { de: 'Grupo Parcial', texto: 'Ya estamos todos en la 500… ¿llegaste?' },
+    mensajeAlEntrar: { de: 'Grupo Parcial', texto: 'Ya estamos todos en la 411… ¿llegaste?' },
+    // Si a los `segundos` todavía no sabe adónde ir, el grupo le explica.
+    pista: {
+      segundos: 60,
+      mensaje: {
+        de: 'Grupo Parcial',
+        texto:
+          'La 411 es en el edificio de las 400, al lado del UTN FRC, frente al patio. 1° piso 🙄',
+      },
+    },
     notificaciones: [
       { hora: '08:15', de: 'Grupo Parcial', texto: 'Y cuarto… ¿llegás?' },
       { hora: '08:17', de: 'Grupo Parcial', texto: 'El profe está por cerrar la puerta 😬' },
       { hora: '08:19', de: 'Mamá', texto: '¿Llegaste bien? Avisame' },
     ],
+    // Lo que pasa al usar cada cosa con E (o al llegar a un lugar): el texto, el evento de
+    // stats (la primera vez) y si da la pista de dónde queda el aula.
+    interacciones: {
+      puertaEmergencia: {
+        texto: 'Salida de emergencia: no abre desde afuera.',
+        evento: 'puertaCerrada',
+      },
+      puertaLaboratorio: {
+        texto: 'Cerrada. Abajo son laboratorios.',
+        evento: 'puertaCerrada',
+      },
+      edificioFrc: {
+        texto:
+          'Cerrado hasta las 9. En el vidrio: «Aulas 400: el edificio de al lado, entrando por el patio».',
+        evento: 'edificioEquivocado',
+        pista: true,
+      },
+      avisos: {
+        texto:
+          'PARCIALES · Diseño de Sistemas 3K5 → Aula 411, 1° piso del edificio de aulas 400 (al lado del UTN FRC).',
+        evento: 'avisos',
+        pista: true,
+      },
+      centralArriba: {
+        texto:
+          'Edificio Central: aulas 200… La 411 es en el edificio de aulas 400, al otro lado del patio.',
+        evento: 'edificioEquivocado',
+        pista: true,
+      },
+      edificioMadders: {
+        texto: 'Edificio Madders: cerrado. Acá no están las aulas 400.',
+        evento: 'edificioEquivocado',
+      },
+      puertaPlantaBaja: {
+        texto: 'Planta baja: aulas 401 a 405. La 411 es arriba.',
+        evento: 'puertaCerrada',
+      },
+    },
+    // Al mirar por la mirilla de las otras aulas (se elige una por número).
+    mirillas: [
+      'una clase de Física. No es acá.',
+      'vacía, con las sillas arriba de los bancos.',
+      'otro parcial… pero no el tuyo.',
+      'un teórico de Análisis. No.',
+    ],
     textos: {
-      ascensor: 'Fuera de servicio. Obvio.',
-      bedelia: 'Cerrado. Atienden de 9 a 12.',
-      directorio: 'Planta baja: aulas 501 a 508 · 1° piso: aulas 511 a 518… ¿Y la 500?',
       puertaAula: '—Permiso… ¿se puede?',
     },
   },
 
-  // --- Escena 5: el parcial, en el aula 500 ---
+  // --- Escena 5: el parcial, en el aula 411 ---
   parcial: {
     textoFundidoEntrada: 'La profesora te da el parcial…',
     // Solo si se arranca directo con ?escena=parcial; si no, sigue la hora de la facultad.
@@ -237,7 +293,7 @@ export const config = {
     // Estrés por segundo mientras corre el reloj, que crece hacia el final.
     estresPorSegundo: 0.05,
     textos: {
-      inicio: 'Aula 500. El parcial está sobre el banco.',
+      inicio: 'Aula 411. El parcial está sobre el banco.',
       rafaga: '¡Una ráfaga de viento!',
       lapicera: 'Se te cayó la lapicera…',
       sinHojas: 'No tenés hojas en el banco: levantalas del piso.',
@@ -302,10 +358,10 @@ export const config = {
       asientoOcupado: { estres: 3, texto: 'Se ocupó el asiento libre' },
       timbre: { estres: -3, texto: 'Parada solicitada' },
       corriendoLluvia: { mojado: 12, texto: 'Corriste bajo la lluvia', pantallaMojada: 0.6 },
-      ascensor: { estres: 4, texto: 'Ascensor fuera de servicio' },
-      bedelia: { estres: 3, texto: 'Bedelía cerrada' },
-      directorio: { estres: 4, texto: '¿Y la 500?' },
-      pisoEquivocado: { estres: 6, texto: 'Subiste al piso equivocado' },
+      puertaCerrada: { estres: 3, texto: 'Puerta cerrada' },
+      edificioEquivocado: { estres: 4, texto: 'Edificio equivocado' },
+      avisos: { estres: -3, texto: 'Ya sabés dónde es' },
+      aulaEquivocada: { estres: 2, texto: 'Aula equivocada' },
       rafaga: { estres: 6, texto: 'El viento te voló las hojas' },
       hojaLevantada: { estres: -1, texto: 'Levantaste la hoja' },
       lapiceraCaida: { estres: 3, texto: 'Se te cayó la lapicera' },

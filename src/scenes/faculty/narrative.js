@@ -5,13 +5,23 @@ import { createPhoneClock, parseTime } from '../../systems/PhoneClock.js';
 import { gameState } from '../../core/gameState.js';
 import { pickByThreshold } from '../../core/PlayerStats.js';
 import { config } from '../../config.js';
-import { playerStart } from './layout.js';
+import {
+  playerStart,
+  roofHeightAt,
+  isInsideStairHall,
+  isInsideAulas400,
+  isInCentralUpper,
+} from './layout.js';
 
 /**
- * Narrativa de la escena 4, adentro del Edificio Gallardo: entra empapado y tiene que
- * encontrar el aula 500 (planta baja). El directorio del hall no la nombra, el ascensor no
- * anda, en el pasillo hay que pedir permiso y la escalera lleva a otras aulas. Cuando
- * llega a la puerta del aula 500, entra con E y se muestra el resumen del día.
+ * Narrativa de la escena 4, en la UTN: entra por el acceso de autos, bajo la lluvia, y
+ * tiene que encontrar el aula 411. A cielo abierto se moja; bajo la galería, el puente o
+ * adentro se seca. El UTN FRC está cerrado, las puertas de abajo del Central también y la
+ * de emergencia no abre desde afuera; la torre vidriada lleva al pasillo del Central (aulas
+ * 200), que no es, y el Madders, al fondo, está cerrado. Los avisos del kiosco, el vidrio
+ * del UTN FRC, el cartel del Central (o el grupo, si tarda) dicen que es en el 1° piso del
+ * edificio de aulas 400, al lado del UTN FRC. En los pasillos hay que pedir permiso. En la puerta del aula 411 entra con E y
+ * pasa al parcial.
  */
 export function createFacultyNarrative({
   camera,
@@ -43,9 +53,41 @@ export function createFacultyNarrative({
     onReceive: (item) => stats.message(item.de),
   });
 
+  const objectives = {
+    buscar: `Encontrá el ${facultad.aula} · [R] mirar el celular`,
+    edificio: 'Andá al edificio de aulas 400, al lado del UTN FRC · [R] celular',
+    subir: `Subí al 1° piso: el ${facultad.aula} es arriba`,
+    pasillo: `Buscá el ${facultad.aula} en el pasillo`,
+  };
+
   function showTimedText(ctx, text, seconds = 3.5) {
     overlay.showNarrativeText(text);
     ctx.textHideAt = ctx.elapsed + seconds;
+  }
+
+  /** Ya sabe que es en el edificio de aulas 400 (por los avisos, un cartel o el grupo). */
+  function learnTheWay(ctx) {
+    if (ctx.knowsWay) return;
+    ctx.knowsWay = true;
+    if (!ctx.inAulas400) overlay.setObjective(objectives.edificio);
+  }
+
+  /** Lugares a los que llega por primera vez: el pasillo del Central y el edificio de aulas 400. */
+  function updatePlaces(ctx, x, z) {
+    const floor = floors.floor;
+    if (!ctx.sawCentral && isInCentralUpper(x, z, floor)) {
+      ctx.sawCentral = true;
+      say('centralArriba');
+    }
+    if (isInsideAulas400(x, z)) {
+      ctx.inAulas400 = true;
+      ctx.knowsWay = true;
+      const objective = floor === 1 ? objectives.pasillo : objectives.subir;
+      if (ctx.objective !== objective) {
+        ctx.objective = objective;
+        overlay.setObjective(objective);
+      }
+    }
   }
 
   /** Si intenta caminar y no avanza (trabado entre la gente), cada tanto pide permiso. */
@@ -62,24 +104,29 @@ export function createFacultyNarrative({
     }
   }
 
-  /** Caminar (y subir la escalera), pedir permiso e interactuar. */
+  /** Caminar (y subir la escalera), mojarse o secarse, pedir permiso e interactuar. */
   function explore(delta, ctx) {
     const moved = movement.update(delta);
-    camera.position.y =
-      config.player.alturaOjos + floors.groundHeight(camera.position.x, camera.position.z);
+    const { x, z } = camera.position;
+    // La altura sigue al piso con un poco de suavizado (escalones, cordones).
+    const target = config.player.alturaOjos + floors.groundHeight(x, z);
+    camera.position.y += (target - camera.position.y) * Math.min(1, delta * 14);
     updatePermiso(delta, moved, ctx);
     interaction.update(delta * 1000);
     if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
     else overlay.hideHint();
-    // La 500 está en planta baja: subir es perder tiempo.
-    if (floors.floor === 1) stats.trigger('pisoEquivocado', { once: true });
-    // Bajo techo se seca un poco; los nervios siguen subiendo con la hora.
+
+    const upstairs = floors.floor === 1;
+    const sheltered = upstairs || roofHeightAt(x, z) < Infinity;
+    if (sheltered) stats.drift('mojado', -config.stats.secadoPorSegundo, delta);
+    else stats.drift('mojado', config.stats.lluviaMojadoPorSegundo, delta);
+    audio.setRainMuffled(upstairs || isInsideStairHall(x, z));
     stats.addLatenessStress(phone.minutes, delta);
-    stats.drift('mojado', -config.stats.secadoPorSegundo, delta);
+    updatePlaces(ctx, x, z);
   }
 
   const states = {
-    // Recién entrado por la puerta vidriada.
+    // Recién entrado por el portón.
     ARRIVING: {
       onEnter(ctx) {
         floors.setFloor(0);
@@ -89,9 +136,9 @@ export function createFacultyNarrative({
         camera.updateProjectionMatrix();
         overlay.hideFadeToBlack();
         overlay.setCrosshairVisible(true);
-        overlay.setObjective(`Encontrá el ${facultad.aula} · [R] mirar el celular`);
+        overlay.setObjective(objectives.buscar);
         input.setLookEnabled(true);
-        // Del colectivo a la puerta, corriendo bajo la lluvia.
+        // Del colectivo al portón, corriendo bajo la lluvia.
         stats.trigger('corriendoLluvia');
         showTimedText(ctx, pickByThreshold(facultad.textosLlegada, stats.get('mojado')), 3);
       },
@@ -108,6 +155,11 @@ export function createFacultyNarrative({
       },
       onUpdate(delta, ctx) {
         explore(delta, ctx);
+        // Si da vueltas sin saber adónde ir, el grupo le dice.
+        if (!ctx.knowsWay && ctx.elapsed >= facultad.pista.segundos) {
+          phone.deliver(facultad.pista.mensaje);
+          learnTheWay(ctx);
+        }
       },
       onExit() {
         overlay.hideHint();
@@ -124,6 +176,7 @@ export function createFacultyNarrative({
         overlay.setPhoneVisible(false);
         overlay.hideToast();
         overlay.setObjective(null);
+        audio.setRainMuffled(true);
         showTimedText(ctx, facultad.textos.puertaAula, 2);
         gameState.clockMinutes = phone.minutes;
         gameState.phoneNotifications = phone.notifications;
@@ -152,6 +205,10 @@ export function createFacultyNarrative({
     textHideAt: null,
     blockedFor: 0,
     permisoCooldownUntil: 0,
+    knowsWay: false,
+    sawCentral: false,
+    inAulas400: false,
+    objective: null,
   };
   const machine = new StateMachine(states, 'ARRIVING', context);
   context.machine = machine;
@@ -160,23 +217,29 @@ export function createFacultyNarrative({
     machine.currentName === 'ARRIVING' || machine.currentName === 'SEARCHING';
 
   /**
-   * Interacciones que solo muestran un texto (ascensor, bedelía, directorio). La primera
-   * vez suman estrés (evento de stats con el mismo nombre).
+   * Cosas que solo muestran un texto (puertas cerradas, el vidrio del UTN FRC, los avisos).
+   * La primera vez cuentan para los stats; las que dan la pista, enseñan el camino.
    */
-  function say(key, seconds = 3.5) {
-    return () => {
-      if (!isExploring()) return;
-      showTimedText(context, facultad.textos[key], seconds);
-      stats.trigger(key, { once: true });
-    };
+  function say(key) {
+    if (!isExploring()) return;
+    const { texto, evento, pista } = facultad.interacciones[key];
+    showTimedText(context, texto, 5);
+    if (evento) stats.trigger(evento, { once: true });
+    if (pista) learnTheWay(context);
   }
 
   return {
     machine,
     isExploring,
-    callElevator: say('ascensor'),
-    askBedelia: say('bedelia'),
-    readDirectory: say('directorio', 5),
+    say,
+    /** Mira por la mirilla de otra aula: nunca es la suya. */
+    peek(number) {
+      if (!isExploring()) return;
+      const lines = facultad.mirillas;
+      const line = lines[Number(number) % lines.length];
+      showTimedText(context, `Aula ${number}: ${line}`, 3);
+      stats.trigger('aulaEquivocada', { once: true });
+    },
     canEnterAula: () => machine.currentName === 'SEARCHING',
     enterAula() {
       if (machine.currentName === 'SEARCHING') machine.transition('ENTERING');

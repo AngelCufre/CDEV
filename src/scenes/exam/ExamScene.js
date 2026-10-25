@@ -9,7 +9,7 @@ import { createExamNarrative } from './narrative.js';
 import { professorLoop } from './layout.js';
 
 /**
- * Escena 5: el parcial, en el aula 500. El jugador está sentado en su banco (no camina):
+ * Escena 5: el parcial, en el aula 411. El jugador está sentado en su banco (no camina):
  * lee el parcial con E mientras corre el reloj, levanta las hojas que vuela el viento y
  * la lapicera, y al final entrega cuando la profesora viene a buscarlo.
  */

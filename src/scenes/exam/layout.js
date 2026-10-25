@@ -1,5 +1,5 @@
 /**
- * Layout de la escena 5, el parcial en el aula 500. Todo en metros. El pizarrón está en
+ * Layout de la escena 5, el parcial en el aula 411. Todo en metros. El pizarrón está en
  * la pared del frente (z negativo) y los alumnos miran hacia -z. Las ventanas están en
  * la pared izquierda (x negativo): una tiene la banderola abierta y por ahí entra el
  * viento que vuela las hojas.

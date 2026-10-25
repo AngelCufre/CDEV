@@ -26,8 +26,15 @@ export function buildSky(radius) {
  *   para que la lluvia acompañe al jugador en exteriores sin cubrir todo el mapa.
  * - `setWind(v)` cambia el desplazamiento lateral (m/s en X). Desde un vehículo en
  *   movimiento, la lluvia "viaja" hacia atrás a la velocidad del vehículo.
+ * - `roofHeightAt(x, z)` (opcional) da la altura del techo sobre ese punto (Infinity si no
+ *   hay): las gotas que quedan debajo de un techo no se dibujan, así no llueve adentro.
  */
-export function buildRain({ count = config.exterior.lluvia.cantidadGotas, area, zBias = 1 }) {
+export function buildRain({
+  count = config.exterior.lluvia.cantidadGotas,
+  area,
+  zBias = 1,
+  roofHeightAt = null,
+}) {
   const { velocidad, largoGota } = config.exterior.lluvia;
   let viento = config.exterior.lluvia.viento;
   let tailDx = (-viento / velocidad) * largoGota;
@@ -88,8 +95,10 @@ export function buildRain({ count = config.exterior.lluvia.cantidadGotas, area, 
       positions[p] = drops[d];
       positions[p + 1] = drops[d + 1];
       positions[p + 2] = drops[d + 2];
-      positions[p + 3] = drops[d] + tailDx;
-      positions[p + 4] = drops[d + 1] + largoGota;
+      // Bajo techo, la gota queda como un segmento de largo cero (no se ve).
+      const covered = roofHeightAt && drops[d + 1] < roofHeightAt(drops[d], drops[d + 2]);
+      positions[p + 3] = drops[d] + (covered ? 0 : tailDx);
+      positions[p + 4] = drops[d + 1] + (covered ? 0 : largoGota);
       positions[p + 5] = drops[d + 2];
     }
     positionAttr.needsUpdate = true;
