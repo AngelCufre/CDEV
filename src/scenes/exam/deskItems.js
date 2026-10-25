@@ -32,13 +32,14 @@ export function createDeskItems({ pages, deskTopY, maxAnisotropy, audio }) {
 
   // ---------- Hojas ----------
   // En el banco quedan apiladas y un poco abiertas en abanico (la primera arriba).
+  // Con muchas hojas, el abanico se repite cada tres para no salirse del banco.
   const deskSlot = (index) => ({
     position: new THREE.Vector3(
-      playerDesk.x - 0.08 + index * 0.05,
-      deskTopY + 0.002 + (pages.length - index) * 0.0015,
-      playerDesk.z + 0.02 - index * 0.02,
+      playerDesk.x - 0.07 + (index % 3) * 0.035,
+      deskTopY + 0.002 + (pages.length - index) * 0.0012,
+      playerDesk.z + 0.02 - (index % 2) * 0.018,
     ),
-    yaw: 0.06 - index * 0.1,
+    yaw: 0.07 - (index % 3) * 0.07,
   });
 
   const sheetGeometry = new THREE.PlaneGeometry(SHEET_WIDTH, SHEET_LENGTH);
