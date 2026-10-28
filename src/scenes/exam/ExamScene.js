@@ -5,6 +5,7 @@ import { buildClassroom } from './buildClassroom.js';
 import { buildExamPages } from './examPages.js';
 import { createDeskItems } from './deskItems.js';
 import { createProfessor } from './professor.js';
+import { createStressedTwo } from './stressedTwo.js';
 import { createExamNarrative } from './narrative.js';
 import { professorLoop } from './layout.js';
 
@@ -50,6 +51,12 @@ export class ExamScene {
       pauseSeconds: pausaAdelanteSegundos,
     });
     this.scene.add(this.professor.group);
+
+    this.stressedTwo = createStressedTwo({
+      speed: config.parcial.numeroDos.velocidad,
+      threshold: config.parcial.numeroDos.umbralEstres,
+    });
+    this.scene.add(this.stressedTwo.group);
 
     this.interaction = new Interaction(camera);
     this.narrative = createExamNarrative({
@@ -106,6 +113,7 @@ export class ExamScene {
     this.classroom.rain.update(delta);
     this.desk.update(delta);
     this.professor.update(delta);
+    this.stressedTwo.update(delta, this.stats.get('estres'));
     this.narrative.update(delta);
   }
 

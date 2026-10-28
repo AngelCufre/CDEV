@@ -287,6 +287,8 @@ export const config = {
       distanciaMira: 1.4,
       distanciaCelular: 3.2,
     },
+    // El 2 con patitas que corre por el aula cuando el estrés pasa `umbralEstres`.
+    numeroDos: { umbralEstres: 70, velocidad: 2.6 },
     // Desenfoque del parcial con estrés: arranca en `desde` y llega a `maximoPx` en 100.
     // La preparación lo atenúa (lo que repasaste, te suena).
     desenfoque: { desde: 35, maximoPx: 5, atenuaPreparacion: 0.5 },
