@@ -10,7 +10,7 @@ const clamp01 = (t) => Math.max(0, Math.min(1, t));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /** Poses de cámara (posición + yaw/pitch) que recorre la animación de despertarse y levantarse. */
-function buildPoses() {
+export function buildPoses() {
   const { bed } = furniture;
   const headZ = bed.center.z - bed.length / 2;
   const bedTopY = bed.frameHeight + bed.mattressHeight;

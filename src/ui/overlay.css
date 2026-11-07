@@ -603,6 +603,32 @@ body {
   opacity: 1;
 }
 
+/* "Volver a jugar" sobre el fundido final. */
+.fade-restart {
+  margin-top: 1.4rem;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  background: #d6b16b;
+  color: #1a1a1a;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.8s ease,
+    transform 0.15s ease;
+}
+
+.fade-restart.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fade-restart:hover {
+  transform: scale(1.04);
+}
+
 /* Cómo cambiaron los stats en la escena que termina. */
 .fade-report {
   display: flex;

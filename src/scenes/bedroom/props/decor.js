@@ -10,7 +10,7 @@ import { room, furniture } from '../roomLayout.js';
  * Paño de cortina: plano subdividido con ondas verticales (más sueltas abajo) y un
  * leve ensanche hacia el piso. `phase` cambia dónde caen las ondas en cada paño.
  */
-function curtainPanel(width, height, phase) {
+export function curtainPanel(width, height, phase, waves = 2.5) {
   const geo = new THREE.PlaneGeometry(width, height, 14, 26);
   const position = geo.attributes.position;
   for (let i = 0; i < position.count; i += 1) {
@@ -18,13 +18,14 @@ function curtainPanel(width, height, phase) {
     const y = position.getY(i);
     const t = (y + height / 2) / height; // 1 arriba, 0 abajo
     const amplitude = 0.035 * (0.7 + 0.3 * (1 - t));
-    const waves = Math.sin((x / width) * Math.PI * 2 * 2.5 + phase);
+    const ripple = Math.sin((x / width) * Math.PI * 2 * waves + phase);
     position.setX(i, x * (1 + 0.08 * (1 - t)));
-    position.setZ(i, waves * amplitude + 0.005 * Math.sin(x * 60 + y * 3));
+    position.setZ(i, ripple * amplitude + 0.005 * Math.sin(x * 60 + y * 3));
   }
   geo.computeVertexNormals();
   const uv = geo.attributes.uv;
-  for (let i = 0; i < uv.count; i += 1) uv.setXY(i, uv.getX(i) * 2, uv.getY(i) * 6);
+  for (let i = 0; i < uv.count; i += 1)
+    uv.setXY(i, uv.getX(i) * 2 * (width / 0.36), uv.getY(i) * 6);
   return geo;
 }
 

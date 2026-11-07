@@ -14,6 +14,7 @@ import { BusStopScene } from './scenes/busStop/BusStopScene.js';
 import { BusRideScene } from './scenes/busRide/BusRideScene.js';
 import { FacultyScene } from './scenes/faculty/FacultyScene.js';
 import { ExamScene } from './scenes/exam/ExamScene.js';
+import { DespertarScene } from './scenes/despertar/DespertarScene.js';
 import { isDebugMode, createDebugTools } from './utils/debug.js';
 
 const canvas = document.getElementById('app-canvas');
@@ -47,8 +48,9 @@ sceneManager.register('parada', BusStopScene);
 sceneManager.register('colectivo', BusRideScene);
 sceneManager.register('facultad', FacultyScene);
 sceneManager.register('parcial', ExamScene);
+sceneManager.register('despertar', DespertarScene);
 
-// ?escena=parada (o colectivo, facultad o parcial) arranca directo en esa escena, para probar sin
+// ?escena=parada (o colectivo, facultad, parcial o despertar) arranca directo en esa escena, para probar sin
 // rehacer las anteriores.
 const requestedScene = params.get('escena');
 const firstScene = sceneManager.has(requestedScene) ? requestedScene : 'habitacion';
@@ -74,7 +76,7 @@ if (isDebugMode()) {
   debugTools = createDebugTools({
     renderer: engine.renderer,
     getStateMachine: () => sceneManager.currentScene?.narrative?.machine ?? null,
-    sceneNames: ['habitacion', 'parada', 'colectivo', 'facultad', 'parcial'],
+    sceneNames: ['habitacion', 'parada', 'colectivo', 'facultad', 'parcial', 'despertar'],
     goTo: (name) => sceneManager.goTo(name),
     playerStats: stats,
   });

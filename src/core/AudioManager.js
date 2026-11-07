@@ -504,6 +504,154 @@ export class AudioManager {
     return this._noiseBuffer;
   }
 
+  // ---------- Alivio (escena final) ----------
+
+  /** Inspiración brusca al despertar de golpe: ruido que sube de tono y se corta. */
+  playGasp() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 0.8;
+    band.frequency.setValueAtTime(600, now);
+    band.frequency.exponentialRampToValueAtTime(1900, now + 0.4);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 2.6, now + 0.38);
+    gain.gain.linearRampToValueAtTime(0, now + 0.5);
+    noise.connect(band);
+    band.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 0.6, Math.random());
+  }
+
+  /** Suspiro largo de alivio: aire que se suelta, cada vez más grave y suave. */
+  playSigh() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.setValueAtTime(2400, now);
+    low.frequency.exponentialRampToValueAtTime(260, now + 2.4);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 3, now + 0.25);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+    noise.connect(low);
+    low.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 2.6, Math.random());
+  }
+
+  /**
+   * Acorde cálido (Do mayor con séptima) que sube despacio, como la luz de la mañana. Queda
+   * sonando bajito hasta `stopMorningPad`; `setMorningPadLevel` lo sube o lo baja.
+   */
+  playMorningPad() {
+    this._stopVoice('pad');
+    const ctx = this.context;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio, ctx.currentTime + 4);
+    gain.connect(ctx.destination);
+    const oscillators = [];
+    for (const [frequency, type, level] of [
+      [130.81, 'sine', 0.5],
+      [196.0, 'sine', 0.35],
+      [329.63, 'triangle', 0.3],
+      [493.88, 'sine', 0.22],
+      [659.25, 'sine', 0.12],
+    ]) {
+      for (const detune of [-5, 5]) {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.value = frequency;
+        osc.detune.value = detune;
+        const voiceGain = ctx.createGain();
+        voiceGain.gain.value = level / 2;
+        osc.connect(voiceGain);
+        voiceGain.connect(gain);
+        osc.start();
+        oscillators.push(osc);
+      }
+    }
+    this._activeVoices.set('pad', {
+      osc: oscillators[0],
+      extras: oscillators.slice(1),
+      gain,
+      level: config.audio.volumenAlivio,
+    });
+  }
+
+  /** Cambia el volumen del acorde (múltiplo del base) en `seconds`. */
+  setMorningPadLevel(multiplier, seconds = 2) {
+    const voice = this._activeVoices.get('pad');
+    if (!voice) return;
+    const now = this.context.currentTime;
+    voice.gain.gain.cancelScheduledValues(now);
+    voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+    voice.gain.gain.linearRampToValueAtTime(voice.level * multiplier, now + seconds);
+  }
+
+  /** Pájaro de la mañana: dos o tres gorjeos agudos que suben y bajan de tono. */
+  playBird() {
+    const ctx = this.context;
+    const base = 2600 + Math.random() * 1400;
+    const chirps = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < chirps; i += 1) {
+      const start = ctx.currentTime + i * 0.13;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(base, start);
+      osc.frequency.exponentialRampToValueAtTime(base * 1.45, start + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.9, start + 0.1);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 0.5, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0, start + 0.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.12);
+      osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+      };
+    }
+  }
+
+  /** Arpegio ascendente y brillante: el momento en que se lee el título. */
+  playChimes() {
+    const ctx = this.context;
+    [523.25, 659.25, 783.99, 987.77, 1046.5].forEach((frequency, index) => {
+      const start = ctx.currentTime + index * 0.22;
+      for (const [multiple, level] of [
+        [1, 1],
+        [2, 0.25],
+      ]) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = frequency * multiple;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 1.1 * level, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 2.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 2.3);
+        osc.onended = () => {
+          osc.disconnect();
+          gain.disconnect();
+        };
+      }
+    });
+  }
+
   /** Reproduce una fuente que se corta sola a los `duration` segundos y se desconecta. */
   _playOneShot(source, output, duration, offset = 0) {
     source.start(this.context.currentTime, offset);
@@ -528,6 +676,14 @@ export class AudioManager {
       voice.lfo?.stop();
     } catch {
       // ya estaba detenido
+    }
+    for (const extra of voice.extras ?? []) {
+      try {
+        extra.stop();
+      } catch {
+        // ya estaba detenido
+      }
+      extra.disconnect();
     }
     voice.osc.disconnect();
     voice.lfo?.disconnect();

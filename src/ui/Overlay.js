@@ -26,6 +26,7 @@ export class Overlay {
     this.summary = this._buildSummary();
     this._toastTimer = null;
     this._onRestart = null;
+    this._restartButton = null;
     this._notesPages = [];
     this._notesIndex = 0;
     this._notesZoom = 1;
@@ -206,8 +207,23 @@ export class Overlay {
     this.fadeToBlack.classList.add('visible');
   }
 
+  /** Botón "Volver a jugar" sobre el fundido final (la última escena no tiene resumen). */
+  showRestartButton() {
+    if (!this._restartButton) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'fade-restart';
+      button.textContent = 'Volver a jugar';
+      button.addEventListener('click', () => this._onRestart?.());
+      this.fadeToBlack.appendChild(button);
+      this._restartButton = button;
+    }
+    this._restartButton.classList.add('visible');
+  }
+
   /** Sale del negro (entrada de una escena nueva). */
   hideFadeToBlack() {
+    this._restartButton?.classList.remove('visible');
     this.fadeToBlack.classList.remove('visible');
   }
 

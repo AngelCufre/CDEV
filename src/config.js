@@ -307,6 +307,40 @@ export const config = {
     textoFinal: 'Entregado.',
   },
 
+  // --- Escena 6: el despertar. Todo fue una pesadilla ---
+  despertar: {
+    // Negro y silencio antes de despertar de golpe.
+    segundosDormido: 2.2,
+    segundosSobresalto: 1.4, // de acostado a sentado en la cama
+    segundosCalma: 7, // lo que tardan el estrés y lo mojado en bajar a cero
+    // El haz entra por la rendija de las cortinas y llega a la pared del título.
+    luz: {
+      color: 0xffd9a0,
+      intensidad: 55,
+      aparecerSegundos: 4, // el sol sale de entre las nubes
+      anchoRendija: 0.5, // m entre las dos cortinas
+    },
+    ambiente: { cielo: 0x2a3550, suelo: 0x2b2118, intensidad: 0.28 },
+    segundosMirandoTitulo: 8,
+    zoomFov: 50,
+    textos: [
+      { en: 1.6, texto: '…¿El parcial?', segundos: 2.2 },
+      { en: 4.2, texto: 'Fue un sueño. Una pesadilla nada más.', segundos: 3.5, sonido: 'suspiro' },
+    ],
+    objetivo: 'Mirá la pared iluminada',
+    textoTitulo: 'Ingeniero en Sistemas de Información',
+    textoCierre: 'Todo iba a salir bien.',
+    textoFinal: 'Fin',
+    // Lo que dice el diploma de la pared.
+    diploma: {
+      universidad: 'UNIVERSIDAD TECNOLÓGICA NACIONAL',
+      facultad: 'Facultad Regional Córdoba',
+      otorga: 'Otorga el título de',
+      titulo: 'INGENIERO EN SISTEMAS\nDE INFORMACIÓN',
+      a: 'a quien nunca dejó de intentarlo',
+    },
+  },
+
   // --- Stats del jugador (HUD arriba a la derecha) ---
   // Valores de 0 a 100. Los eventos suman o restan de golpe (con aviso en el HUD); los
   // ritmos cambian de a poco, por segundo real.
@@ -318,6 +352,7 @@ export const config = {
       colectivo: 'El colectivo',
       facultad: 'La facultad',
       parcial: 'El parcial',
+      despertar: 'El despertar',
     },
     // Nervios por la hora: estrés por segundo desde que sabe que llega tarde. Se
     // multiplica por (1 + minutos de atraso / minutosParaDuplicar), con hasta 20 min.
@@ -448,5 +483,6 @@ export const config = {
     volumenRespiracion: 0.12,
     volumenViento: 0.35,
     volumenObjetos: 0.3, // lapicera, papeles
+    volumenAlivio: 0.1, // suspiro, acorde, pájaros y campanitas de la escena final
   },
 };
