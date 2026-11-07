@@ -22,7 +22,7 @@ export function buildPhone(nightstandTopY) {
   group.add(body);
 
   const screenTexture = createPhoneScreenTexture(config.narrative.notificaciones);
-  const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture });
+  const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture, color: 0xffffff });
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.062, 0.135), screenMaterial);
   screen.rotation.x = -Math.PI / 2;
   screen.position.y = 0.0065;
@@ -33,5 +33,29 @@ export function buildPhone(nightstandTopY) {
   group.position.set(center.x - size * 0.22, nightstandTopY + 0.006, center.z + size * 0.22);
   group.rotation.y = 0.3;
 
-  return { group, interactableMesh: body };
+  let blinkTime = 0;
+  let blinking = false;
+  let taken = false;
+
+  return {
+    group,
+    interactableMesh: body,
+    setBlinking(value) {
+      blinking = value;
+      blinkTime = 0;
+      screenMaterial.color.setHex(0xffffff);
+    },
+    take() {
+      taken = true;
+      group.visible = false;
+      body.visible = false;
+      screen.visible = false;
+    },
+    update(delta) {
+      if (!blinking || taken) return;
+      blinkTime += delta;
+      const phase = Math.floor(blinkTime / 0.18) % 4;
+      screenMaterial.color.setHex(phase === 1 || phase === 3 ? 0x050505 : 0xffffff);
+    },
+  };
 }

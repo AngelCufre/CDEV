@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 
 // `npm run dev` abre el juego en Firefox (donde se prueba), no en el navegador
 // predeterminado del sistema. Con BROWSER=... (o BROWSER=none) se puede cambiar.
-process.env.BROWSER ??= 'firefox';
+process.env.BROWSER ??= 'msedge';
 
 export default defineConfig({
   base: './',

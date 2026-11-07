@@ -378,6 +378,8 @@ export const config = {
     eventos: {
       dormido: { estres: 15, texto: 'Te quedaste dormido' },
       mensajesSinLeer: { estres: 6, texto: 'Mensajes sin leer' },
+      mochilaAgarrada: { estres: -5, texto: 'Agarraste la mochila' },
+      mochilaOlvidada: { estres: 8, texto: 'Te fuiste sin la mochila' },
       hojaTranquilo: { preparacion: 14, estres: -2, texto: 'Repasaste una hoja' },
       hojaApurado: { preparacion: 10, estres: 3, texto: 'Repaso a las apuradas' },
       charco: { mojado: 8, estres: 2, texto: 'Pisaste un charco' },

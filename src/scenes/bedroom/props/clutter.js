@@ -46,7 +46,7 @@ function leaningBox(width, height, depth, radius, lean, x, y, z) {
  * Desorden del piso: zapatillas junto a la cama, la mochila apoyada contra la pata del
  * escritorio, una remera tirada y papeles arrugados. Todo estático, en `buckets`.
  */
-export function buildFloorClutter(buckets, obstacles) {
+export function buildFloorClutter(buckets, obstacles, materials = null) {
   const { bed, desk } = furniture;
 
   // Zapatillas a los pies de la cama, del lado libre, una más torcida que la otra.
@@ -76,27 +76,69 @@ export function buildFloorClutter(buckets, obstacles) {
   const lean = -0.25;
   const packX = desk.center.x - desk.width / 2 - 0.12;
   const packZ = desk.center.z + desk.depth / 2 - 0.05;
-  buckets.addGeometry('backpack', leaningBox(0.16, 0.42, 0.3, 0.05, lean, packX, 0.215, packZ));
-  buckets.addGeometry(
-    'backpack',
-    leaningBox(0.17, 0.12, 0.31, 0.03, lean, packX + 0.045, 0.39, packZ),
-  ); // tapa
-  for (const dz of [-0.08, 0.08]) {
+  let backpackResult = null;
+  if (materials) {
+    const backpack = new THREE.Group();
+    backpack.name = 'backpack';
+    backpack.add(
+      new THREE.Mesh(
+        leaningBox(0.16, 0.42, 0.3, 0.05, lean, packX, 0.215, packZ),
+        materials.backpack,
+      ),
+      new THREE.Mesh(
+        leaningBox(0.17, 0.12, 0.31, 0.03, lean, packX + 0.045, 0.39, packZ),
+        materials.backpack,
+      ),
+    );
+    for (const dz of [-0.08, 0.08]) {
+      backpack.add(
+        new THREE.Mesh(
+          leaningBox(0.02, 0.3, 0.03, 0.006, lean, packX - 0.09, 0.22, packZ + dz),
+          materials.darkMatte,
+        ),
+      );
+    }
+    for (const mesh of backpack.children) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+    const hitbox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.5, 0.42),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    );
+    hitbox.position.set(packX, 0.25, packZ);
+    backpack.add(hitbox);
+    obstacles.push(
+      new THREE.Box3(
+        new THREE.Vector3(packX - 0.15, 0, packZ - 0.2),
+        new THREE.Vector3(packX + 0.12, 0.5, packZ + 0.2),
+      ),
+    );
+    backpackResult = { backpack, interactableMesh: hitbox };
+  } else {
+    buckets.addGeometry('backpack', leaningBox(0.16, 0.42, 0.3, 0.05, lean, packX, 0.215, packZ));
     buckets.addGeometry(
-      'darkMatte',
-      leaningBox(0.02, 0.3, 0.03, 0.006, lean, packX - 0.09, 0.22, packZ + dz),
-    ); // correas
+      'backpack',
+      leaningBox(0.17, 0.12, 0.31, 0.03, lean, packX + 0.045, 0.39, packZ),
+    ); // tapa
+    for (const dz of [-0.08, 0.08]) {
+      buckets.addGeometry(
+        'darkMatte',
+        leaningBox(0.02, 0.3, 0.03, 0.006, lean, packX - 0.09, 0.22, packZ + dz),
+      ); // correas
+    }
+    obstacles.push(
+      new THREE.Box3(
+        new THREE.Vector3(packX - 0.15, 0, packZ - 0.2),
+        new THREE.Vector3(packX + 0.12, 0.5, packZ + 0.2),
+      ),
+    );
   }
-  obstacles.push(
-    new THREE.Box3(
-      new THREE.Vector3(packX - 0.15, 0, packZ - 0.2),
-      new THREE.Vector3(packX + 0.12, 0.5, packZ + 0.2),
-    ),
-  );
 
   // Remera tirada en el piso (bulto achatado con una manga) y papeles arrugados.
   buckets.addIcosahedron('fabricClothes', 0.16, 3, 0.35, 0.03, 0.85, { x: 1.5, y: 0.22, z: 1.1 });
   buckets.addBox('fabricClothes', 0.1, 0.03, 0.28, 0.6, 0.015, 0.98, 0.5, { radius: 0.012 });
   buckets.addIcosahedron('pillow', 0.04, 1, 1.05, 0.04, -0.85);
   buckets.addIcosahedron('pillow', 0.035, 1, 2.1, 0.035, -0.6);
+  return backpackResult;
 }

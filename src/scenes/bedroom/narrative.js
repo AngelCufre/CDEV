@@ -58,6 +58,8 @@ export function createNarrative({
   interaction,
   collision,
   notesPages,
+  phone,
+  backpack,
   onLeave,
 }) {
   const poses = buildPoses();
@@ -66,6 +68,7 @@ export function createNarrative({
   // Reutilizamos estos objetos en cada frame para no asignar memoria en el loop.
   const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
   const _pose = { position: new THREE.Vector3(), yaw: 0, pitch: 0 };
+  const _phoneTarget = new THREE.Vector3();
 
   function applyPose(pose) {
     camera.position.copy(pose.position);
@@ -86,11 +89,14 @@ export function createNarrative({
         ctx.timer = 0;
         ctx.hasStood = false;
         ctx.realized = false;
+        ctx.phoneRead = false;
+        ctx.hasBackpack = false;
         ctx.pagesRead = new Set();
         // Empieza el día: los stats vuelven a cero y el HUD espera a que se levante.
         stats.reset();
         overlay.setStatsVisible(false);
         overlay.setObjective(null);
+        overlay.setPhoneVisible(false);
         overlay.setEyelidIntensity(1);
         overlay.setVignetteIntensity(0);
         // Todavía dormido: el mouse no responde hasta terminar de levantarse.
@@ -163,8 +169,29 @@ export function createNarrative({
         applyPose(pose);
 
         if (t >= 1) {
-          ctx.machine.transition('EXPLORING');
+          ctx.machine.transition('PHONE_REQUIRED');
         }
+      },
+    },
+
+    PHONE_REQUIRED: {
+      onEnter(ctx) {
+        ctx.phoneRead = false;
+        applyPose(poses.standing);
+        phone.group.getWorldPosition(_phoneTarget);
+        camera.lookAt(_phoneTarget);
+        phone.setBlinking(true);
+        overlay.setCrosshairVisible(true);
+        input.setLookEnabled(false);
+      },
+      onUpdate(delta) {
+        interaction.update(delta * 1000);
+        if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
+        else overlay.hideHint();
+      },
+      onExit() {
+        phone.setBlinking(false);
+        overlay.hideHint();
       },
     },
 
@@ -233,6 +260,7 @@ export function createNarrative({
         ctx.startFov = camera.fov;
         audio.stopAmbient();
         audio.playHeartbeat();
+        phone.setBlinking(false);
       },
       onUpdate(delta, ctx) {
         ctx.timer += delta;
@@ -254,7 +282,6 @@ export function createNarrative({
         }
         if (!ctx.notifsShown && ctx.timer >= config.realization.notificacionesDelaySegundos) {
           ctx.notifsShown = true;
-          overlay.showNotifications(config.narrative.notificaciones);
           stats.trigger('mensajesSinLeer');
         }
         if (ctx.timer >= volver) {
@@ -302,9 +329,42 @@ export function createNarrative({
     }
   }
 
+  function readPhone() {
+    if (
+      context.phoneRead ||
+      (machine.currentName !== 'PHONE_REQUIRED' && machine.currentName !== 'EXPLORING')
+    ) {
+      return;
+    }
+    context.phoneRead = true;
+    phone.take();
+    stats.trigger('dormido', { once: true });
+    stats.trigger('mensajesSinLeer', { once: true });
+    overlay.setObjective('Presioná R para ver los mensajes. Agarrá la mochila y salí por la puerta');
+    if (machine.currentName === 'PHONE_REQUIRED') {
+      context.realized = true;
+      machine.transition('EXPLORING');
+    }
+  }
+
+  function showPhoneMessages() {
+    overlay.setPhoneNotifications(
+      config.narrative.notificaciones.map((texto) => ({ de: 'Mensajes', texto })),
+    );
+    overlay.setPhoneVisible(!overlay.isPhoneVisible);
+  }
+
+  function takeBackpack() {
+    if (context.hasBackpack || machine.currentName !== 'EXPLORING') return;
+    context.hasBackpack = true;
+    backpack.backpack.visible = false;
+    stats.trigger('mochilaAgarrada', { once: true });
+  }
+
   /** Llamado por la escena cuando el jugador usa la puerta (solo después de darse cuenta). */
   function leaveRoom() {
     if (machine.currentName === 'EXPLORING' && context.realized) {
+      if (!context.hasBackpack) stats.trigger('mochilaOlvidada', { once: true });
       machine.transition('LEAVING');
     }
   }
@@ -322,6 +382,10 @@ export function createNarrative({
    * zoom, Esc/Q para cerrar.
    */
   function handleKey(code, key) {
+    if (code === 'KeyR' && context.phoneRead && (machine.currentName === 'EXPLORING' || machine.currentName === 'REALIZATION')) {
+      showPhoneMessages();
+      return;
+    }
     if (machine.currentName !== 'READING') return;
     if (code === 'ArrowRight' || code === 'KeyD') overlay.showNextNote();
     else if (code === 'ArrowLeft' || code === 'KeyA') overlay.showPrevNote();
@@ -341,15 +405,23 @@ export function createNarrative({
   return {
     machine,
     requestRealization,
+    readPhone,
+    takeBackpack,
     leaveRoom,
     get hasRealized() {
       return context.realized === true;
+    },
+    get hasBackpack() {
+      return context.hasBackpack === true;
     },
     openNotes,
     closeNotes,
     handleKey,
     handleWheel,
     handlePointerMove,
+    updatePhone(delta) {
+      phone.update(delta);
+    },
     update(delta) {
       // Desde que sabe la hora, los nervios suben solos (acá no hay reloj corriendo).
       if (context.realized && machine.currentName !== 'LEAVING') {

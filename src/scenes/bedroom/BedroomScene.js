@@ -57,7 +57,7 @@ export class BedroomScene {
     const { topY: nightstandTopY } = buildNightstand(buckets, obstacles);
     const { topY: deskTopY } = buildDesk(buckets, obstacles);
     buildChair(buckets, obstacles);
-    buildFloorClutter(buckets, obstacles);
+    const backpack = buildFloorClutter(buckets, obstacles, materials);
     buildCurtains(buckets);
     buildRug(buckets);
     buildPoster(buckets);
@@ -77,6 +77,7 @@ export class BedroomScene {
       if (wallMounted.has(mesh.name.replace('furniture-', ''))) mesh.castShadow = false;
       this.scene.add(mesh);
     }
+    this.scene.add(backpack.backpack);
 
     const bookPile = buildBookPile(1.35, 0.35);
     this.scene.add(bookPile.mesh);
@@ -118,8 +119,14 @@ export class BedroomScene {
     this.interaction.register(
       phone.interactableMesh,
       'Mirar el celular',
-      () => this.narrative.requestRealization(),
+      () => this.narrative.readPhone(),
       beforeRealizing,
+    );
+    this.interaction.register(
+      backpack.interactableMesh,
+      'Agarrar la mochila',
+      () => this.narrative.takeBackpack(),
+      () => this.narrative.machine.currentName === 'EXPLORING' && !this.narrative.hasBackpack,
     );
     this.interaction.register(notes.interactableMesh, 'Leer los apuntes', () =>
       this.narrative.openNotes(),
@@ -140,12 +147,16 @@ export class BedroomScene {
       interaction: this.interaction,
       collision: this.collision,
       notesPages,
+      phone,
+      backpack,
       onLeave: () => this.goTo('parada'),
     });
 
     this._onInteractPress = () => {
       const state = this.narrative.machine.currentName;
-      if (state === 'EXPLORING') {
+      if (state === 'PHONE_REQUIRED') {
+        this.narrative.readPhone();
+      } else if (state === 'EXPLORING') {
         this.interaction.triggerInteract();
       } else if (state === 'READING') {
         this.narrative.closeNotes();
@@ -169,6 +180,7 @@ export class BedroomScene {
 
   update(delta) {
     this.outdoor.update(delta);
+    this.narrative.updatePhone(delta);
     this.narrative.update(delta);
   }
 
