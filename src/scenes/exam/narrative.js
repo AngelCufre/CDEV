@@ -9,7 +9,8 @@ import { playerEye, handInSpot } from './layout.js';
  * Narrativa de la escena 5, el parcial: sentado en el banco, se lee el parcial con E
  * (cuanto más estrés, más borroso se ve). Durante el examen el viento vuela hojas, se cae
  * la lapicera, la profesora pasa mirando y avisa cuánto falta. Cuando se termina el
- * tiempo viene al banco a retirar el parcial: se entrega con E y termina la escena.
+ * tiempo viene al banco a retirar el parcial: se entrega con E y se pasa a la escena final
+ * (`onFinish`), donde el estudiante despierta.
  */
 export function createExamNarrative({
   camera,
@@ -21,6 +22,7 @@ export function createExamNarrative({
   desk,
   professor,
   classroom,
+  onFinish,
 }) {
   const cfg = config.parcial;
   const start = gameState.clockMinutes ?? parseTime(cfg.horaInicio);
@@ -242,17 +244,11 @@ export function createExamNarrative({
       },
     },
 
+    // La pantalla sigue en negro ("Entregado."): la escena siguiente despierta al estudiante.
     END: {
-      onEnter(ctx) {
+      onEnter() {
         audio.stopAll();
-        // Suelta el mouse para poder usar el botón "Volver a jugar".
-        input.unlock();
-        overlay.showDaySummary(
-          stats.summary({
-            arrivalMinutes: gameState.arrivalMinutes ?? start,
-            penalty: ctx.missing * 15,
-          }),
-        );
+        onFinish();
       },
     },
   };

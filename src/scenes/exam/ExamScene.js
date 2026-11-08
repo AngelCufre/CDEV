@@ -12,15 +12,17 @@ import { professorLoop } from './layout.js';
 /**
  * Escena 5: el parcial, en el aula 411. El jugador está sentado en su banco (no camina):
  * lee el parcial con E mientras corre el reloj, levanta las hojas que vuela el viento y
- * la lapicera, y al final entrega cuando la profesora viene a buscarlo.
+ * la lapicera, y al final entrega cuando la profesora viene a buscarlo. Después despierta
+ * (escena 6).
  */
 export class ExamScene {
-  constructor({ engine, input, audio, overlay, stats }) {
+  constructor({ engine, input, audio, overlay, stats, goTo }) {
     this.engine = engine;
     this.input = input;
     this.audio = audio;
     this.overlay = overlay;
     this.stats = stats;
+    this.goTo = goTo;
     this._unsubscribers = [];
 
     this.scene = new THREE.Scene();
@@ -69,6 +71,8 @@ export class ExamScene {
       desk: this.desk,
       professor: this.professor,
       classroom: this.classroom,
+      // Al entregar, el estudiante despierta: todo fue una pesadilla.
+      onFinish: () => this.goTo('despertar'),
     });
 
     const narrative = this.narrative;
