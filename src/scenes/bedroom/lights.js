@@ -3,14 +3,14 @@ import { config } from '../../config.js';
 import { room } from './roomLayout.js';
 
 /**
- * Iluminación de la escena: una única luz direccional con sombras (el sol entrando
- * por la ventana, ya alto — refuerza que es tarde) más una luz ambiental suave.
+ * Iluminación de la escena: una única luz direccional con sombras (la claridad fría
+ * de un día nublado entrando por la ventana) más una luz ambiental suave.
  * Solo esta luz emite sombras, tal como pide el presupuesto de rendimiento.
  */
 export function buildLights() {
   const sun = new THREE.DirectionalLight(config.luces.solColor, config.luces.solIntensidad);
   // Entra por la ventana (pared norte, z negativo) en diagonal hacia el escritorio,
-  // barriendo piso y pared este para que se note la luz cálida de mañana.
+  // barriendo piso y pared este.
   sun.position.set(-1.2, 3.0, -3.8);
   sun.target.position.set(1.2, 0.4, 1.0);
   sun.castShadow = true;

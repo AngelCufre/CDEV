@@ -89,6 +89,88 @@ export class AudioManager {
     this._stopVoice('heartbeat');
   }
 
+  /**
+   * Un latido suelto (lub-dub) con el volumen dado. Lo dispara el estrés al ritmo del
+   * corazón, así que no se agenda de antemano como en `playHeartbeat`.
+   */
+  playHeartbeatBeat(volume) {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    // Cada golpe baja de tono, como un "thump" (se oye mejor en parlantes chicos).
+    for (const [start, level] of [
+      [0, 1],
+      [0.18, 0.7],
+    ]) {
+      osc.frequency.setValueAtTime(95, now + start);
+      osc.frequency.exponentialRampToValueAtTime(48, now + start + 0.12);
+      gain.gain.setValueAtTime(0, now + start);
+      gain.gain.linearRampToValueAtTime(volume * level, now + start + 0.03);
+      gain.gain.linearRampToValueAtTime(0, now + start + 0.12);
+    }
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(osc, gain, 0.35);
+  }
+
+  /**
+   * Respiración lenta y profunda mientras se mantiene apretado Espacio: ruido suave que
+   * sube y baja (inhalar / exhalar) con un LFO. `setBreathing(false)` la apaga.
+   */
+  setBreathing(active) {
+    const playing = this._activeVoices.has('breath');
+    if (active === playing) return;
+    if (!active) {
+      const voice = this._activeVoices.get('breath');
+      this._activeVoices.delete('breath');
+      const now = this.context.currentTime;
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+      voice.gain.gain.linearRampToValueAtTime(0, now + 0.4);
+      voice.osc.stop(now + 0.45);
+      voice.lfo.stop(now + 0.45);
+      voice.osc.onended = () => {
+        voice.osc.disconnect();
+        voice.lfo.disconnect();
+        voice.gain.disconnect();
+      };
+      return;
+    }
+    const ctx = this.context;
+    const volume = config.audio.volumenRespiracion;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 700;
+    band.Q.value = 0.7;
+
+    // El volumen oscila entre 0 y `volume`: un ciclo de respiración cada ~4 s.
+    const breath = ctx.createGain();
+    breath.gain.value = volume / 2;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.25;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = volume / 2;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(breath.gain);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.5);
+    noise.connect(band);
+    band.connect(breath);
+    breath.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+    lfo.start();
+    this._activeVoices.set('breath', { osc: noise, gain, lfo });
+  }
+
   /** Ambiente de fondo suave (ruido de habitación silenciosa). */
   playAmbient() {
     this._stopVoice('ambient');
@@ -123,6 +205,463 @@ export class AudioManager {
     this._stopVoice('ambient');
   }
 
+  /**
+   * Lluvia: ruido filtrado, constante durante toda la escena. Adentro se escucha a
+   * través de la ventana cerrada (sin graves ni agudos extremos); afuera, con
+   * `exterior: true`, es más fuerte y con más agudos.
+   */
+  playRain({ exterior = false } = {}) {
+    this._stopVoice('rain');
+    const ctx = this.context;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.loop = true;
+
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = exterior ? 300 : 500;
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = exterior ? 7500 : 4000;
+
+    const gain = ctx.createGain();
+    const volume = exterior ? config.audio.volumenLluviaExterior : config.audio.volumenLluvia;
+    gain.gain.value = volume;
+
+    noise.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+
+    this._activeVoices.set('rain', {
+      osc: noise,
+      gain,
+      lowpass,
+      volume,
+      cutoff: lowpass.frequency.value,
+      muffled: false,
+    });
+  }
+
+  /** Bajo techo y entre paredes, la lluvia de afuera se escucha más baja y apagada. */
+  setRainMuffled(muffled) {
+    const voice = this._activeVoices.get('rain');
+    if (!voice || voice.muffled === muffled) return;
+    voice.muffled = muffled;
+    const now = this.context.currentTime;
+    voice.lowpass.frequency.setTargetAtTime(muffled ? 1800 : voice.cutoff, now, 0.35);
+    voice.gain.gain.setTargetAtTime(muffled ? voice.volume * 0.4 : voice.volume, now, 0.35);
+  }
+
+  stopRain() {
+    this._stopVoice('rain');
+  }
+
+  /** Celular vibrando: dos zumbidos cortos. */
+  playVibration() {
+    const ctx = this.context;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = 160;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 400;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    for (const start of [0, 0.45]) {
+      gain.gain.setValueAtTime(0, now + start);
+      gain.gain.linearRampToValueAtTime(config.audio.volumenVibracion, now + start + 0.02);
+      gain.gain.setValueAtTime(config.audio.volumenVibracion, now + start + 0.3);
+      gain.gain.linearRampToValueAtTime(0, now + start + 0.33);
+    }
+    this._playOneShot(osc, gain, 0.9);
+  }
+
+  /**
+   * Pisar un charco: chapoteo (ruido que decae rápido) más un golpe grave. Con
+   * `strength` > 1 es más fuerte, más grave y más largo (un auto que te salpica).
+   */
+  playSplash(strength = 1) {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const volume =
+      config.audio.volumenSalpicadura * Math.min(strength, 1.8) * (0.8 + Math.random() * 0.4);
+    const length = 0.35 * Math.sqrt(strength);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = (1100 + Math.random() * 500) / Math.sqrt(strength);
+    band.Q.value = 0.8;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(volume, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + length);
+    noise.connect(band);
+    band.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    this._playOneShot(noise, noiseGain, length + 0.05, Math.random());
+
+    const thump = ctx.createOscillator();
+    thump.type = 'sine';
+    thump.frequency.setValueAtTime(110, now);
+    thump.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+    const thumpGain = ctx.createGain();
+    thumpGain.gain.setValueAtTime(volume * 0.6, now);
+    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    thump.connect(thumpGain);
+    thumpGain.connect(ctx.destination);
+    this._playOneShot(thump, thumpGain, 0.15);
+  }
+
+  /** Timbre de "parada solicitada" del colectivo: un "ding" agudo con su armónico. */
+  playBell() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    for (const [frequency, volume] of [
+      [1480, 0.22],
+      [2960, 0.08],
+    ]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      this._playOneShot(osc, gain, 1);
+    }
+  }
+
+  /** Frenos de aire del colectivo y la puerta abriéndose: siseo agudo que se apaga. */
+  playBrakeHiss() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 2500;
+    const gain = ctx.createGain();
+    const volume = config.audio.volumenColectivo * 0.35;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
+    noise.connect(highpass);
+    highpass.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 1.4);
+  }
+
+  /** Ráfaga de viento que entra por la ventana: ruido que sube y baja de tono. */
+  playWind() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 0.9;
+    band.frequency.setValueAtTime(280, now);
+    band.frequency.exponentialRampToValueAtTime(950, now + 0.7);
+    band.frequency.exponentialRampToValueAtTime(320, now + 2.2);
+    const gain = ctx.createGain();
+    const volume = config.audio.volumenViento;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + 0.45);
+    gain.gain.exponentialRampToValueAtTime(volume * 0.6, now + 1.3);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+    noise.connect(band);
+    band.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 2.5);
+  }
+
+  /** Lapicera que cae al piso: dos o tres "clic" agudos que se apagan rápido. */
+  playPenDrop() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    for (const [start, level] of [
+      [0, 1],
+      [0.11, 0.45],
+      [0.19, 0.2],
+    ]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(2600 + Math.random() * 900, now + start);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.setValueAtTime(config.audio.volumenObjetos * level, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + 0.05);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      this._playOneShot(osc, gain, start + 0.08);
+    }
+  }
+
+  /** Papel que se levanta o se mueve: un roce corto de ruido agudo. */
+  playPaper() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 2200;
+    const gain = ctx.createGain();
+    const volume = config.audio.volumenObjetos * 0.6;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.03);
+    gain.gain.linearRampToValueAtTime(volume * 0.4, now + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    noise.connect(highpass);
+    highpass.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 0.3, Math.random());
+  }
+
+  /**
+   * Sonido continuo de un vehículo (motor + neumáticos sobre agua) como audio
+   * posicional: hay que agregar `audio` al objeto del vehículo para que se escuche
+   * desde ahí y se acerque/aleje con él. `stop()` lo corta y lo desconecta.
+   */
+  createVehicleSound(kind = 'car') {
+    const ctx = this.context;
+    const isBus = kind === 'bus';
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    noise.loop = true;
+    const hiss = ctx.createBiquadFilter();
+    hiss.type = 'bandpass';
+    hiss.frequency.value = isBus ? 800 : 1300;
+    hiss.Q.value = 0.6;
+    const hissGain = ctx.createGain();
+    hissGain.gain.value = isBus ? 0.5 : 0.7;
+
+    const engine = ctx.createOscillator();
+    engine.type = 'sawtooth';
+    engine.frequency.value = isBus ? 42 : 70 + Math.random() * 15;
+    const engineFilter = ctx.createBiquadFilter();
+    engineFilter.type = 'lowpass';
+    engineFilter.frequency.value = isBus ? 180 : 240;
+    const engineGain = ctx.createGain();
+    engineGain.gain.value = isBus ? 0.9 : 0.35;
+
+    const mix = ctx.createGain();
+    noise.connect(hiss);
+    hiss.connect(hissGain);
+    hissGain.connect(mix);
+    engine.connect(engineFilter);
+    engineFilter.connect(engineGain);
+    engineGain.connect(mix);
+
+    const audio = new THREE.PositionalAudio(this.listener);
+    audio.setNodeSource(mix);
+    audio.setVolume(isBus ? config.audio.volumenColectivo : config.audio.volumenAutos);
+    audio.setRefDistance(isBus ? 7 : 5);
+    audio.setRolloffFactor(1.4);
+    noise.start();
+    engine.start();
+
+    let stopped = false;
+    return {
+      audio,
+      /** 0..1: baja el ruido de neumáticos cuando el vehículo está detenido. */
+      setRolling(amount) {
+        hissGain.gain.value = (isBus ? 0.5 : 0.7) * amount;
+      },
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        noise.stop();
+        engine.stop();
+        audio.disconnect();
+        audio.removeFromParent();
+      },
+    };
+  }
+
+  /** Ruido blanco de 2 s, generado una vez y reutilizado por todas las voces. */
+  _getNoiseBuffer() {
+    if (!this._noiseBuffer) {
+      const ctx = this.context;
+      const size = 2 * ctx.sampleRate;
+      this._noiseBuffer = ctx.createBuffer(1, size, ctx.sampleRate);
+      const data = this._noiseBuffer.getChannelData(0);
+      for (let i = 0; i < size; i += 1) data[i] = (Math.random() * 2 - 1) * 0.3;
+    }
+    return this._noiseBuffer;
+  }
+
+  // ---------- Alivio (escena final) ----------
+
+  /** Inspiración brusca al despertar de golpe: ruido que sube de tono y se corta. */
+  playGasp() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 0.8;
+    band.frequency.setValueAtTime(600, now);
+    band.frequency.exponentialRampToValueAtTime(1900, now + 0.4);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 2.6, now + 0.38);
+    gain.gain.linearRampToValueAtTime(0, now + 0.5);
+    noise.connect(band);
+    band.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 0.6, Math.random());
+  }
+
+  /** Suspiro largo de alivio: aire que se suelta, cada vez más grave y suave. */
+  playSigh() {
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this._getNoiseBuffer();
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.setValueAtTime(2400, now);
+    low.frequency.exponentialRampToValueAtTime(260, now + 2.4);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 3, now + 0.25);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+    noise.connect(low);
+    low.connect(gain);
+    gain.connect(ctx.destination);
+    this._playOneShot(noise, gain, 2.6, Math.random());
+  }
+
+  /**
+   * Acorde cálido (Do mayor con séptima) que sube despacio, como la luz de la mañana. Queda
+   * sonando bajito hasta `stopMorningPad`; `setMorningPadLevel` lo sube o lo baja.
+   */
+  playMorningPad() {
+    this._stopVoice('pad');
+    const ctx = this.context;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio, ctx.currentTime + 4);
+    gain.connect(ctx.destination);
+    const oscillators = [];
+    for (const [frequency, type, level] of [
+      [130.81, 'sine', 0.5],
+      [196.0, 'sine', 0.35],
+      [329.63, 'triangle', 0.3],
+      [493.88, 'sine', 0.22],
+      [659.25, 'sine', 0.12],
+    ]) {
+      for (const detune of [-5, 5]) {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.value = frequency;
+        osc.detune.value = detune;
+        const voiceGain = ctx.createGain();
+        voiceGain.gain.value = level / 2;
+        osc.connect(voiceGain);
+        voiceGain.connect(gain);
+        osc.start();
+        oscillators.push(osc);
+      }
+    }
+    this._activeVoices.set('pad', {
+      osc: oscillators[0],
+      extras: oscillators.slice(1),
+      gain,
+      level: config.audio.volumenAlivio,
+    });
+  }
+
+  /** Cambia el volumen del acorde (múltiplo del base) en `seconds`. */
+  setMorningPadLevel(multiplier, seconds = 2) {
+    const voice = this._activeVoices.get('pad');
+    if (!voice) return;
+    const now = this.context.currentTime;
+    voice.gain.gain.cancelScheduledValues(now);
+    voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+    voice.gain.gain.linearRampToValueAtTime(voice.level * multiplier, now + seconds);
+  }
+
+  /** Pájaro de la mañana: dos o tres gorjeos agudos que suben y bajan de tono. */
+  playBird() {
+    const ctx = this.context;
+    const base = 2600 + Math.random() * 1400;
+    const chirps = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < chirps; i += 1) {
+      const start = ctx.currentTime + i * 0.13;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(base, start);
+      osc.frequency.exponentialRampToValueAtTime(base * 1.45, start + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.9, start + 0.1);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 0.5, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0, start + 0.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.12);
+      osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+      };
+    }
+  }
+
+  /** Arpegio ascendente y brillante: el momento en que se lee el título. */
+  playChimes() {
+    const ctx = this.context;
+    [523.25, 659.25, 783.99, 987.77, 1046.5].forEach((frequency, index) => {
+      const start = ctx.currentTime + index * 0.22;
+      for (const [multiple, level] of [
+        [1, 1],
+        [2, 0.25],
+      ]) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = frequency * multiple;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(config.audio.volumenAlivio * 1.1 * level, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 2.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 2.3);
+        osc.onended = () => {
+          osc.disconnect();
+          gain.disconnect();
+        };
+      }
+    });
+  }
+
+  /** Reproduce una fuente que se corta sola a los `duration` segundos y se desconecta. */
+  _playOneShot(source, output, duration, offset = 0) {
+    source.start(this.context.currentTime, offset);
+    source.stop(this.context.currentTime + duration);
+    source.onended = () => {
+      source.disconnect();
+      output.disconnect();
+    };
+  }
+
   stopAll() {
     for (const key of Array.from(this._activeVoices.keys())) {
       this._stopVoice(key);
@@ -134,10 +673,20 @@ export class AudioManager {
     if (!voice) return;
     try {
       voice.osc.stop();
+      voice.lfo?.stop();
     } catch {
       // ya estaba detenido
     }
+    for (const extra of voice.extras ?? []) {
+      try {
+        extra.stop();
+      } catch {
+        // ya estaba detenido
+      }
+      extra.disconnect();
+    }
     voice.osc.disconnect();
+    voice.lfo?.disconnect();
     voice.gain.disconnect();
     this._activeVoices.delete(key);
   }

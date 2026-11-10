@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { createPhoneScreenTexture } from '../../../utils/textures.js';
 import { furniture } from '../roomLayout.js';
 import { config } from '../../../config.js';
@@ -16,16 +17,15 @@ export function buildPhone(nightstandTopY) {
     roughness: 0.3,
     metalness: 0.2,
   });
-  const bodyGeometry = new THREE.BoxGeometry(0.07, 0.012, 0.145);
-  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  const body = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.012, 0.145, 3, 0.005), bodyMaterial);
+  body.castShadow = true;
   group.add(body);
 
   const screenTexture = createPhoneScreenTexture(config.narrative.notificaciones);
   const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture });
-  const screenGeometry = new THREE.PlaneGeometry(0.062, 0.135);
-  const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.062, 0.135), screenMaterial);
   screen.rotation.x = -Math.PI / 2;
-  screen.position.y = 0.007;
+  screen.position.y = 0.0065;
   group.add(screen);
 
   const { center, size } = furniture.nightstand;

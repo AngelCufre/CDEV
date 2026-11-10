@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
+import { PostProcessing } from './PostProcessing.js';
 
 /**
  * Motor base: renderer, cámara, loop de render, resize y pausa por visibilidad.
@@ -29,6 +30,8 @@ export class Engine {
       config.player.far,
     );
 
+    this.post = config.render.postProceso ? new PostProcessing(this.renderer, this.camera) : null;
+
     this.clock = new THREE.Clock();
     this._updateCallback = null;
     this._rafId = null;
@@ -47,6 +50,12 @@ export class Engine {
   /** Marca que el shadow map necesita recalcularse una vez (tras cambios de geometría/luz). */
   requestShadowUpdate() {
     this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /** Dibuja la escena desde la cámara del jugador (con post-procesado si está activo). */
+  render(scene, delta) {
+    if (this.post) this.post.render(scene, delta);
+    else this.renderer.render(scene, this.camera);
   }
 
   /**
@@ -82,6 +91,7 @@ export class Engine {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    this.post?.setSize(width, height);
   }
 
   _onVisibilityChange() {
@@ -96,6 +106,7 @@ export class Engine {
     this.stop();
     window.removeEventListener('resize', this._onResize);
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    this.post?.dispose();
     this.renderer.dispose();
   }
 }

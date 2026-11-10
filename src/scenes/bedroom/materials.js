@@ -4,6 +4,8 @@ import {
   createFloorTexture,
   createWoodTexture,
   createFabricTexture,
+  createRainOnGlassTexture,
+  createPosterTexture,
 } from '../../utils/textures.js';
 
 /**
@@ -50,28 +52,57 @@ export function createBedroomMaterials() {
     roughness: 0.95,
   });
 
+  // DoubleSide: el acolchado es una tela de una sola cara que cuelga del colchón.
   const fabricClothes = new THREE.MeshStandardMaterial({
     map: createFabricTexture('#7a2e2e'),
     roughness: 0.95,
+    side: THREE.DoubleSide,
   });
+
+  const backpack = new THREE.MeshStandardMaterial({
+    map: createFabricTexture('#2f3f33'),
+    roughness: 0.9,
+  });
+
+  const curtain = new THREE.MeshStandardMaterial({
+    map: createFabricTexture('#b9b1a0'),
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+  });
+
+  const rug = new THREE.MeshStandardMaterial({
+    map: createFabricTexture('#4d5566'),
+    roughness: 1,
+  });
+
+  // Zócalos, marcos de la puerta y la ventana, placa del interruptor.
+  const trim = new THREE.MeshStandardMaterial({ color: 0xf0ebe0, roughness: 0.8 });
+  const ceramic = new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.35 });
+  const darkMatte = new THREE.MeshStandardMaterial({ color: 0x26262a, roughness: 0.9 });
+  const shade = new THREE.MeshStandardMaterial({
+    color: 0xe8dcc0,
+    roughness: 0.85,
+    side: THREE.DoubleSide,
+  });
+  const poster = new THREE.MeshStandardMaterial({ map: createPosterTexture(), roughness: 0.9 });
 
   const pillow = new THREE.MeshStandardMaterial({
     color: 0xf3ede0,
     roughness: 0.9,
   });
 
-  // Vidrio simple y liviano: MeshStandardMaterial transparente en vez de
-  // MeshPhysicalMaterial + transmission (mucho más caro, requiere pases extra
-  // del renderer) ya que solo necesitamos un aspecto translúcido básico.
-  const glass = new THREE.MeshStandardMaterial({
-    color: 0xbfe0f0,
+  // Vidrio simple y liviano: material transparente en vez de MeshPhysicalMaterial
+  // + transmission (mucho más caro, requiere pases extra del renderer) ya que solo
+  // necesitamos un aspecto translúcido básico.
+  // La textura trae las gotas de lluvia en el canal alfa: el vidrio en sí es casi
+  // transparente y las gotas se ven más opacas. Es MeshBasicMaterial porque la cara
+  // interior del vidrio no recibe la luz de la ventana y las gotas se verían como manchas.
+  const glass = new THREE.MeshBasicMaterial({
+    map: createRainOnGlassTexture(),
     transparent: true,
-    opacity: 0.25,
-    roughness: 0.05,
-    metalness: 0,
+    depthWrite: false,
   });
 
-  const paper = new THREE.MeshStandardMaterial({ color: 0xf5f2e8, roughness: 0.9 });
   const screenOff = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
   const door = new THREE.MeshStandardMaterial({
     map: createWoodTexture('#6b4a2e'),
@@ -87,9 +118,19 @@ export function createBedroomMaterials() {
     metal,
     fabricBed,
     fabricClothes,
+    backpack,
+    curtain,
+    rug,
+    trim,
+    ceramic,
+    darkMatte,
+    // Mismo material que darkMatte, con su propia clave: el marco del póster está pegado
+    // a la pared y no debe proyectar sombra, a diferencia del resto de lo oscuro mate.
+    posterFrame: darkMatte,
+    shade,
+    poster,
     pillow,
     glass,
-    paper,
     screenOff,
     door,
   };

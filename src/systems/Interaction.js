@@ -14,15 +14,19 @@ export class Interaction {
     this.raycaster.far = config.interaccion.distanciaMaxima;
     this._origin = new THREE.Vector2(0, 0); // centro de pantalla
 
-    this.interactables = []; // Array<{ mesh, label, onInteract }>
+    this.interactables = []; // Array<{ mesh, label, onInteract, isEnabled }>
     this.hovered = null;
 
     this._accumMs = 0;
     this._onHoverChange = null;
   }
 
-  register(mesh, label, onInteract) {
-    this.interactables.push({ mesh, label, onInteract });
+  /**
+   * `isEnabled` (opcional) decide en cada raycast si el objeto cuenta: por ejemplo,
+   * la puerta de la habitación solo sirve después de darse cuenta de la hora.
+   */
+  register(mesh, label, onInteract, isEnabled = () => true) {
+    this.interactables.push({ mesh, label, onInteract, isEnabled });
   }
 
   unregisterAll() {
@@ -40,7 +44,9 @@ export class Interaction {
     this._accumMs = 0;
 
     this.raycaster.setFromCamera(this._origin, this.camera);
-    const meshes = this.interactables.map((entry) => entry.mesh);
+    const meshes = this.interactables
+      .filter((entry) => entry.isEnabled())
+      .map((entry) => entry.mesh);
     const hits = this.raycaster.intersectObjects(meshes, false);
 
     const hitEntry = hits.length > 0 ? this._findEntry(hits[0].object) : null;
@@ -53,7 +59,7 @@ export class Interaction {
 
   /** Dispara la interacción sobre el objeto actualmente resaltado (si hay uno). */
   triggerInteract() {
-    if (this.hovered) this.hovered.onInteract();
+    if (this.hovered?.isEnabled()) this.hovered.onInteract();
   }
 
   _findEntry(mesh) {
