@@ -27,6 +27,16 @@ export default [
     },
   },
   {
+    files: ['referencias/trailer/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ['dist/**', 'node_modules/**'],
   },
 ];
