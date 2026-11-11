@@ -99,10 +99,7 @@ export class ExamScene {
 
     this._unsubscribers.push(
       this.input.onInteract(() => narrative.interact()),
-      this.input.onKeyDown((code, key) => {
-        if (code === 'KeyR') narrative.togglePhone();
-        else narrative.handleKey(code, key);
-      }),
+      this.input.onKeyDown((code, key) => narrative.handleKey(code, key)),
       this.input.onWheel((deltaY) => narrative.handleWheel(deltaY)),
       this.input.onPointerMove((dx, dy) => narrative.handlePointerMove(dx, dy)),
       // Con el puntero bloqueado, el Esc lo toma el navegador: se cierra el parcial.

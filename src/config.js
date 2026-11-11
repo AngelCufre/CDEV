@@ -262,7 +262,8 @@ export const config = {
     horaEntrega: '10:00',
     // Aunque se llegue muy tarde, el parcial dura al menos esto (minutos de juego).
     minutosMinimos: 20,
-    segundosPorMinuto: 2,
+    // Solo en el parcial: cada minuto de juego pasa en un segundo real.
+    segundosPorMinuto: 1,
     // Cuándo pasa cada cosa, como fracción del tiempo que dura el parcial.
     rafagas: [
       { en: 0.22, hojas: 1 },

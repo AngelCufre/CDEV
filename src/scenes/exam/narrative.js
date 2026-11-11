@@ -42,6 +42,7 @@ export function createExamNarrative({
     incoming: cfg.notificaciones,
     secondsPerMinute: cfg.segundosPorMinuto,
     battery: config.parada.bateriaCelular,
+    allowOpen: false,
     onReceive: (item) => stats.message(item.de),
   });
 
@@ -71,7 +72,7 @@ export function createExamNarrative({
     if (desk.pagesOnDesk().length === 0) {
       overlay.setObjective('Se volaron las hojas: levantalas del piso [E]');
     } else if (desk.sheetsMissing > 0) {
-      overlay.setObjective('Se volaron hojas: levantalas del piso [E] · [R] celular');
+      overlay.setObjective('Se volaron hojas: levantalas del piso [E]');
     } else {
       overlay.setObjective(`Leé el parcial [E] · entrega ${cfg.horaEntrega} hs`);
     }
@@ -119,25 +120,15 @@ export function createExamNarrative({
     .filter((event) => event.at > start)
     .sort((a, b) => a.at - b.at);
 
-  /** La profesora pasa cerca (te mira) o te ve con el celular. */
+  /** La profesora pasa cerca y observa al estudiante. */
   function watchProfessor(ctx) {
-    const { distanciaMira, distanciaCelular } = cfg.profesora;
+    const { distanciaMira } = cfg.profesora;
     const distance = eyeXZ.distanceTo(
       new THREE.Vector2(professor.position.x, professor.position.z),
     );
     if (distance < distanciaMira && ctx.elapsed > ctx.watchCooldownUntil) {
       ctx.watchCooldownUntil = ctx.elapsed + 30;
       stats.trigger('profeMira');
-    }
-    if (
-      overlay.isPhoneVisible &&
-      distance < distanciaCelular &&
-      ctx.elapsed > ctx.phoneCooldownUntil
-    ) {
-      ctx.phoneCooldownUntil = ctx.elapsed + 12;
-      stats.trigger('celularEnParcial');
-      overlay.setPhoneVisible(false);
-      showTimedText(ctx, cfg.textos.celular, 3);
     }
   }
 
@@ -160,6 +151,7 @@ export function createExamNarrative({
           camera.fov = config.player.fov;
           camera.updateProjectionMatrix();
           overlay.hideFadeToBlack();
+          overlay.setPhoneVisible(false);
           showTimedText(ctx, cfg.textos.inicio, 3.5);
         }
         overlay.setCrosshairVisible(true);
@@ -257,7 +249,6 @@ export function createExamNarrative({
     elapsed: 0,
     textHideAt: null,
     watchCooldownUntil: 0,
-    phoneCooldownUntil: 0,
     lastClockMinute: -1,
     canHandIn: false,
     missing: 0,
@@ -304,12 +295,6 @@ export function createExamNarrative({
       } else if (state === 'TIME_UP') {
         if (interaction.hovered) interaction.triggerInteract();
         else if (context.canHandIn) machine.transition('HANDING_IN');
-      }
-    },
-    togglePhone() {
-      const state = machine.currentName;
-      if (state === 'SEATED' || state === 'TIME_UP') {
-        overlay.setPhoneVisible(!overlay.isPhoneVisible);
       }
     },
     /** Teclas del visor: flechas (o A/D) para pasar de hoja, + y − para zoom, Esc/Q para cerrar. */

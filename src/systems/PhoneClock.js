@@ -21,6 +21,7 @@ export function formatTime(totalMinutes) {
  * - `received`: notificaciones que ya están en el celular.
  * - `incoming`: [{ hora: 'HH:MM', de, texto }] que llegan cuando el reloj marca esa hora
  *   (las que ya pasaron al empezar se descartan).
+ * - `allowOpen`: si es falso, el aviso de un mensaje no invita a abrir el celular.
  * - `onReceive(item)` (opcional): avisa de cada mensaje nuevo (por ejemplo, para el estrés).
  */
 export function createPhoneClock({
@@ -31,6 +32,7 @@ export function createPhoneClock({
   incoming,
   secondsPerMinute,
   battery,
+  allowOpen = true,
   onReceive = null,
 }) {
   const inbox = received.map((item) => ({ ...item }));
@@ -54,7 +56,11 @@ export function createPhoneClock({
     overlay.setPhoneNotifications(inbox);
     audio.playVibration();
     if (!overlay.isPhoneVisible) {
-      overlay.showToast(`📳 ${item.de}: nuevo mensaje · [R] ver celular`);
+      overlay.showToast(
+        allowOpen
+          ? `📳 ${item.de}: nuevo mensaje · [R] ver celular`
+          : `📳 ${item.de}: nuevo mensaje`,
+      );
     }
     onReceive?.(item);
   }
