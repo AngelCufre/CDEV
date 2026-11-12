@@ -27,7 +27,7 @@ const readingPose = {
  * Narrativa de la última escena, el despertar: el estudiante abre los ojos de golpe en su
  * cama, con las cortinas cerradas, y se da cuenta de que el parcial fue una pesadilla. Un
  * haz de sol se cuela entre las cortinas y ilumina la pared donde cuelga su título de
- * Licenciado en Sistemas de Información. Lo mira de cerca y la escena (y el juego) termina.
+ * Ingeniero en Sistemas de Información. Lo mira de cerca y la escena (y el juego) termina.
  */
 export function createDespertarNarrative({
   camera,
@@ -204,7 +204,7 @@ export function createDespertarNarrative({
         ctx.timer = 0;
         ctx.restartShown = false;
         overlay.hideNarrativeText();
-        overlay.showFadeToBlack(cfg.textoFinal);
+        overlay.showFadeToBlack(cfg.textoFinal, [], cfg.agradecimiento);
         audio.setMorningPadLevel(0, 4);
       },
       onUpdate(delta, ctx) {

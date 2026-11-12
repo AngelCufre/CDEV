@@ -55,6 +55,18 @@ export function createExamNarrative({
     ctx.textHideAt = ctx.elapsed + seconds;
   }
 
+  /** Aviso central con cuenta regresiva desde que la profesora pide la entrega. */
+  function showHandInPrompt(ctx) {
+    const remaining = Math.max(1, Math.ceil(ctx.handInDeadline - ctx.elapsed));
+    if (remaining === ctx.handInRemaining) return;
+    ctx.handInRemaining = remaining;
+    overlay.showSceneTitle(
+      `${cfg.textos.pedidoEntrega} [E]`,
+      'La profesora te pide el parcial',
+      `Presioná E para entregarlo. La profesora lo retira en ${remaining} s.`,
+    );
+  }
+
   /**
    * Objetivo según el estado. `state` se pasa explícito desde los onEnter: el primero
    * corre dentro del constructor de la máquina, cuando todavía no existe `machine`.
@@ -63,7 +75,7 @@ export function createExamNarrative({
     if (state === 'TIME_UP') {
       overlay.setObjective(
         context.canHandIn
-          ? 'Entregá el parcial [E]'
+          ? 'Entregá el parcial [E] · la profesora está esperando'
           : 'Se terminó el tiempo · esperá a la profesora',
       );
       return;
@@ -81,7 +93,9 @@ export function createExamNarrative({
   /** Mira, pasa el mouse por las cosas y muestra qué se puede hacer con E. */
   function look(delta) {
     interaction.update(delta * 1000);
-    if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
+    if (machine.currentName === 'TIME_UP' && context.canHandIn) {
+      overlay.showHint('[E] Entregar el parcial');
+    } else if (interaction.hovered) overlay.showHint(`[E] ${interaction.hovered.label}`);
     else if (machine.currentName === 'SEATED' && desk.pagesOnDesk().length > 0) {
       overlay.showHint('[E] Leer el parcial');
     } else overlay.hideHint();
@@ -153,6 +167,11 @@ export function createExamNarrative({
           overlay.hideFadeToBlack();
           overlay.setPhoneVisible(false);
           showTimedText(ctx, cfg.textos.inicio, 3.5);
+          overlay.showSceneTitle(cfg.textos.respiracionTitulo, '', cfg.textos.respiracion, {
+            compact: true,
+            action: false,
+          });
+          ctx.breathingTitleHideAt = ctx.elapsed + cfg.recordatorioRespiracionSegundos;
         }
         overlay.setCrosshairVisible(true);
         input.setLookEnabled(true);
@@ -167,11 +186,13 @@ export function createExamNarrative({
     },
 
     READING: {
-      onEnter() {
+      onEnter(ctx) {
         input.setLookEnabled(false);
         overlay.setCrosshairVisible(false);
         overlay.setPhoneVisible(false);
-        overlay.openNotes(desk.pagesOnDesk());
+        overlay.hideSceneTitle();
+        ctx.breathingTitleHideAt = null;
+        overlay.openNotes(desk.pagesOnDesk(), { tip: cfg.textos.respiracion });
       },
       onUpdate(delta, ctx) {
         overlay.setNotesBlur(blurFor(ctx.elapsed));
@@ -185,6 +206,8 @@ export function createExamNarrative({
     TIME_UP: {
       onEnter(ctx) {
         ctx.canHandIn = false;
+        ctx.breathingTitleHideAt = null;
+        overlay.hideSceneTitle();
         overlay.setCrosshairVisible(true);
         input.setLookEnabled(true);
         showTimedText(ctx, cfg.textos.fin, 4.5);
@@ -192,17 +215,24 @@ export function createExamNarrative({
         professor.goTo(handInSpot.x, handInSpot.z, Math.PI, () => {
           ctx.canHandIn = true;
           // Si no se lo das, te lo saca ella.
-          ctx.handInDeadline = ctx.elapsed + 10;
+          ctx.handInDeadline = ctx.elapsed + cfg.entregaAutomaticaSegundos;
+          ctx.handInRemaining = null;
+          ctx.textHideAt = null;
+          overlay.hideNarrativeText();
+          showHandInPrompt(ctx);
           updateObjective('TIME_UP');
         });
         updateObjective('TIME_UP');
       },
       onUpdate(delta, ctx) {
         look(delta);
-        if (ctx.canHandIn && ctx.elapsed > ctx.handInDeadline) machine.transition('HANDING_IN');
+        if (!ctx.canHandIn) return;
+        if (ctx.elapsed >= ctx.handInDeadline) machine.transition('HANDING_IN');
+        else showHandInPrompt(ctx);
       },
       onExit() {
         overlay.hideHint();
+        overlay.hideSceneTitle();
       },
     },
 
@@ -248,6 +278,7 @@ export function createExamNarrative({
   const context = {
     elapsed: 0,
     textHideAt: null,
+    breathingTitleHideAt: null,
     watchCooldownUntil: 0,
     lastClockMinute: -1,
     canHandIn: false,
@@ -293,8 +324,8 @@ export function createExamNarrative({
         if (interaction.hovered) interaction.triggerInteract();
         else openExam();
       } else if (state === 'TIME_UP') {
-        if (interaction.hovered) interaction.triggerInteract();
-        else if (context.canHandIn) machine.transition('HANDING_IN');
+        if (context.canHandIn) machine.transition('HANDING_IN');
+        else if (interaction.hovered) interaction.triggerInteract();
       }
     },
     /** Teclas del visor: flechas (o A/D) para pasar de hoja, + y − para zoom, Esc/Q para cerrar. */
@@ -345,6 +376,10 @@ export function createExamNarrative({
       if (ctx.textHideAt !== null && ctx.elapsed >= ctx.textHideAt) {
         overlay.hideNarrativeText();
         ctx.textHideAt = null;
+      }
+      if (ctx.breathingTitleHideAt !== null && ctx.elapsed >= ctx.breathingTitleHideAt) {
+        overlay.hideSceneTitle();
+        ctx.breathingTitleHideAt = null;
       }
       machine.update(delta);
     },

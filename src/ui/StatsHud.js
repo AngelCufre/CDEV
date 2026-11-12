@@ -4,24 +4,26 @@ const ICON_PATHS = {
   estres:
     'M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.3 0 5.6 3.1 4.4 6.6-1.7 4.8-9.2 9.4-9.2 9.4z',
   mojado: 'M12 2.8s-6.5 7.3-6.5 11.7a6.5 6.5 0 0 0 13 0C18.5 10.1 12 2.8 12 2.8z',
-  preparacion:
-    'M3.5 5.2c2.6-.9 5.4-.6 7.7 1v13c-2.3-1.5-5.1-1.9-7.7-1V5.2zm17 0c-2.6-.9-5.4-.6-7.7 1v13c2.3-1.5 5.1-1.9 7.7-1V5.2z',
 };
 
 /** Stats que se muestran, en orden. */
 export const STAT_INFO = [
   { key: 'estres', label: 'Estrés' },
   { key: 'mojado', label: 'Mojado' },
-  { key: 'preparacion', label: 'Preparación' },
 ];
 
 const LABELS = Object.fromEntries(STAT_INFO.map(({ key, label }) => [key, label]));
+
+/** La preparación sigue siendo interna, pero no se muestra como barra ni como puntos. */
+export function isVisibleStat(key) {
+  return Object.hasOwn(LABELS, key);
+}
 
 function statLabel(key) {
   return LABELS[key] ?? key;
 }
 
-/** Ícono SVG del stat (corazón, gota, libro), para insertar con innerHTML. */
+/** Ícono SVG del stat visible (corazón o gota), para insertar con innerHTML. */
 export function statIcon(key) {
   return `<svg class="stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON_PATHS[key]}"/></svg>`;
 }
@@ -148,7 +150,9 @@ export class StatsHud {
       void row.offsetWidth; // reinicia la animación si ya estaba destellando
       row.classList.add('bump');
     }
-    const visible = Object.entries(cambios).filter(([, amount]) => Math.round(amount) !== 0);
+    const visible = Object.entries(cambios).filter(
+      ([key, amount]) => isVisibleStat(key) && Math.round(amount) !== 0,
+    );
     if (!texto || visible.length === 0) return;
 
     const item = document.createElement('div');

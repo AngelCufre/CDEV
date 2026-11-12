@@ -16,6 +16,7 @@ import { buildAulas400 } from './aulas400.js';
 import { buildStudents } from './students.js';
 import { createFloors } from './floors.js';
 import { createFacultyNarrative } from './narrative.js';
+import { createFacultyEntranceGuide } from './entranceGuide.js';
 import { bounds, roofHeightAt } from './layout.js';
 
 /**
@@ -94,6 +95,9 @@ export class FacultyScene {
     floorTiles.name = 'floor-tiles';
     group.add(floorTiles);
     this.scene.add(group);
+
+    this.entranceGuide = createFacultyEntranceGuide();
+    this.scene.add(this.entranceGuide.group);
 
     const students = buildStudents();
     this.scene.add(students.mesh);
@@ -192,6 +196,7 @@ export class FacultyScene {
     this.sky.position.set(cameraPosition.x, 0, cameraPosition.z);
     this.rain.update(delta, cameraPosition);
     this.narrative.update(delta);
+    this.entranceGuide.update(delta, this.narrative.needsBuildingGuide());
   }
 
   /** Reflejos del piso mojado, con la cámara ya lista para el frame. */

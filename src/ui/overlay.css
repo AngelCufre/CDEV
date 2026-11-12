@@ -274,6 +274,9 @@ body {
   top: 50%;
   left: 50%;
   width: min(90%, 42rem);
+  padding: 0.8rem 1.2rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
   transform: translate(-50%, -44%);
   color: #fff;
   text-align: center;
@@ -304,15 +307,50 @@ body {
   line-height: 1.05;
 }
 
+.scene-title.compact h2 {
+  font-size: clamp(1.7rem, 4.5vw, 3rem);
+  line-height: 1.15;
+}
+
+.scene-title-detail:empty {
+  display: none;
+}
+
+.scene-title.action {
+  width: min(90%, 34rem);
+  padding: 1.2rem 1.5rem;
+  border: 1px solid rgba(231, 200, 135, 0.65);
+  border-radius: 12px;
+  background: rgba(14, 16, 20, 0.92);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.4);
+}
+
+.scene-title.action h2 {
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+}
+
+.scene-title-detail {
+  margin-top: 0.7rem;
+  color: #fff0cb;
+  font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+  line-height: 1.5;
+}
+
 .narrative-text {
   position: absolute;
   top: 12%;
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: min(90%, 48rem);
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.38);
   color: #fff;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
   font-size: 1.4rem;
   font-weight: 600;
+  line-height: 1.4;
   text-align: center;
   opacity: 0;
   transition: opacity 0.4s ease;
@@ -375,6 +413,26 @@ body {
 .notes-viewer.visible {
   opacity: 1;
   visibility: visible;
+}
+
+.notes-tip {
+  max-width: min(90%, 48rem);
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.38);
+  color: #fff0cb;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.notes-tip:empty {
+  display: none;
+}
+
+.notes-viewer.with-tip .notes-page img {
+  max-height: calc(100vh - 10rem);
 }
 
 .notes-stage {
@@ -663,6 +721,24 @@ body {
 }
 
 .fade-to-black.visible .fade-text {
+  opacity: 1;
+}
+
+.fade-message {
+  max-width: 90%;
+  color: #e7c887;
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 1s ease 1.3s;
+}
+
+.fade-message:empty {
+  display: none;
+}
+
+.fade-to-black.visible .fade-message {
   opacity: 1;
 }
 

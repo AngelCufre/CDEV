@@ -32,6 +32,7 @@ export const config = {
   // --- Animación de levantarse ---
   gettingUp: {
     duracionSegundos: 2.2,
+    titulo: 'Bueno, es hora de levantarse',
     subtituloSegundos: 5,
     // posición/rotación de la cámara acostada vs. sentada se definen en narrative.js
   },
@@ -214,7 +215,7 @@ export const config = {
       },
       edificioFrc: {
         texto:
-          'Edificio Posseto. Cerrado hasta las 9. En el vidrio: «Aulas 400: edificio Inchaurrondo, entrando por el patio».',
+          'Edificio Posseto: aulas 900. Cerrado hasta las 9. En el vidrio: «Aulas 400: edificio Inchaurrondo, entrando por el patio».',
         evento: 'edificioEquivocado',
         pista: true,
       },
@@ -261,6 +262,9 @@ export const config = {
     minutosMinimos: 20,
     // Solo en el parcial: cada minuto de juego pasa en medio segundo real.
     segundosPorMinuto: 0.5,
+    // Desde que la profesora llega al banco: E entrega o ella lo retira al vencer el plazo.
+    entregaAutomaticaSegundos: 4,
+    recordatorioRespiracionSegundos: 6,
     // Cuándo pasa cada cosa, como fracción del tiempo que dura el parcial.
     rafagas: [
       { en: 0.22, hojas: 1 },
@@ -294,11 +298,15 @@ export const config = {
     estresPorSegundo: 0.05,
     textos: {
       inicio: 'Aula 411. El parcial está sobre el banco.',
+      respiracionTitulo: 'Respirá hondo con Espacio',
+      respiracion:
+        'Mantené la barra espaciadora para bajar el estrés y ver el parcial con más claridad.',
       rafaga: '¡Una ráfaga de viento!',
       lapicera: 'Se te cayó la lapicera…',
       sinHojas: 'No tenés hojas en el banco: levantalas del piso.',
       celular: '—¡Ese celular se guarda!',
       fin: '—Se terminó el tiempo. Entreguen, por favor.',
+      pedidoEntrega: 'Entregá el parcial, cariño',
       entrega: '—Gracias. Pueden retirarse.',
       faltanHojas: '—¿Y la otra hoja?',
     },
@@ -328,9 +336,10 @@ export const config = {
     tituloEscenaKicker: 'El despertar',
     tituloEscena: 'Uf, qué pesadilla',
     objetivo: 'Revisá el cuadro iluminado de la pared',
-    textoTitulo: 'Licenciado en Sistemas de Información',
+    textoTitulo: 'Ingeniero en Sistemas de Información',
     textoCierre: 'Todo iba a salir bien.',
     textoFinal: 'Fin',
+    agradecimiento: '¡Muchas gracias por jugar!',
     // Lo que dice el diploma de la pared.
     diploma: {
       pais: 'REPÚBLICA ARGENTINA',
@@ -341,11 +350,11 @@ export const config = {
       documento: 'DNI N.º 40.382.716',
       nacimiento: '9 de septiembre de 2000',
       lugarNacimiento: 'Córdoba, Argentina',
-      carrera: 'Licenciatura en Sistemas de Información',
+      carrera: 'Ingeniería en Sistemas de Información',
       fechaEgreso: '18 de diciembre de 2025',
       fundamento: 'De conformidad con las disposiciones legales y estatutarias vigentes',
       otorga: 'se le otorga el título de',
-      titulo: 'LICENCIADO EN SISTEMAS\nDE INFORMACIÓN',
+      titulo: 'INGENIERO EN SISTEMAS\nDE INFORMACIÓN',
       expedicion: 'Córdoba, 12 de marzo de 2026',
       registro: 'Registro N.º 014872 · Folio 286',
       numero: 'DP N.º 00018472',

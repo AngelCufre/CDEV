@@ -39,10 +39,11 @@ function buildTower(ctx) {
   ctx.group.add(
     createPanel({
       width: 2.0,
-      height: 0.42,
+      height: 0.5,
       x: doorX,
       y: 2.95,
-      z: T.maxZ + 0.06,
+      // Por delante de los parantes (llegan hasta +0.07) para no cortar las letras.
+      z: T.maxZ + 0.1,
       facing: 'z+',
       fog: true,
       background: '#1d3557',
@@ -50,6 +51,7 @@ function buildTower(ctx) {
       lines: [
         { text: 'ESCALERA · 1° PISO', size: 0.11, bold: true },
         { text: 'Puente al Edificio Central', size: 0.08 },
+        { text: 'Aulas 200', size: 0.075 },
       ],
     }),
     createBanner({

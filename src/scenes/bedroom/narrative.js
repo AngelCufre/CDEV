@@ -148,6 +148,7 @@ export function createNarrative({
     GETTING_UP: {
       onEnter(ctx) {
         ctx.timer = 0;
+        overlay.showSceneTitle(config.gettingUp.titulo, '', '', { compact: true });
         audio.playAmbient();
       },
       onUpdate(delta, ctx) {
@@ -168,6 +169,9 @@ export function createNarrative({
         if (t >= 1) {
           ctx.machine.transition('EXPLORING');
         }
+      },
+      onExit() {
+        overlay.hideSceneTitle();
       },
     },
 
@@ -291,7 +295,9 @@ export function createNarrative({
         camera.updateProjectionMatrix();
         overlay.hideNarrativeText();
         overlay.clearNotifications();
-        overlay.setObjective(`Llegá al parcial en el ${config.narrative.aula} · Salí por la puerta`);
+        overlay.setObjective(
+          `Llegá al parcial en el ${config.narrative.aula} · Salí por la puerta`,
+        );
       },
     },
 

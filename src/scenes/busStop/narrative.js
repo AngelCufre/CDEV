@@ -103,7 +103,7 @@ export function createBusStopNarrative({
         overlay.hideFadeToBlack();
         overlay.setCrosshairVisible(true);
         overlay.setObjective(
-          `Llegá al parcial · Caminá hasta la parada del ${parada.linea} · [R] celular`,
+          `Salí a la vereda y seguí la flecha amarilla hasta la parada del ${parada.linea} · [R] celular`,
         );
         input.setLookEnabled(true);
       },
@@ -112,13 +112,10 @@ export function createBusStopNarrative({
         ctx.goingFor += delta;
         if (isAtBusStop()) {
           ctx.machine.transition('WAITING');
-        } else if (
-          !ctx.goingHintShown &&
-          ctx.goingFor >= parada.pistaCaminoSegundos
-        ) {
+        } else if (!ctx.goingHintShown && ctx.goingFor >= parada.pistaCaminoSegundos) {
           ctx.goingHintShown = true;
           overlay.setObjective(
-            `Seguí por la vereda hasta el cartel azul de la línea ${parada.linea}`,
+            `La parada del ${parada.linea} está a la derecha al salir: buscá la flecha amarilla sobre el cartel azul`,
           );
         }
       },

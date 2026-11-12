@@ -189,7 +189,7 @@ function canvasPanel(canvas, { width, height, x, y, z, facing }) {
 }
 
 /** Letrero de la entrada: emblema de la UTN y nombre del edificio. */
-export function createLogoSign({ width, height, x, y, z, facing, buildingName }) {
+export function createLogoSign({ width, height, x, y, z, facing, buildingName, roomsLabel = '' }) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width * PX_PER_METER);
   canvas.height = Math.round(height * PX_PER_METER);
@@ -202,9 +202,17 @@ export function createLogoSign({ width, height, x, y, z, facing, buildingName })
   ctx.fillStyle = color;
   ctx.textBaseline = 'middle';
   ctx.font = `bold ${Math.round(canvas.height * 0.13)}px sans-serif`;
-  ctx.fillText('EDIFICIO', canvas.width * 0.44, canvas.height * 0.32);
+  ctx.fillText('EDIFICIO', canvas.width * 0.44, canvas.height * (roomsLabel ? 0.24 : 0.32));
   ctx.font = `bold ${Math.round(canvas.height * 0.19)}px sans-serif`;
-  ctx.fillText(buildingName.toUpperCase(), canvas.width * 0.44, canvas.height * 0.66);
+  ctx.fillText(
+    buildingName.toUpperCase(),
+    canvas.width * 0.44,
+    canvas.height * (roomsLabel ? 0.52 : 0.66),
+  );
+  if (roomsLabel) {
+    ctx.font = `bold ${Math.round(canvas.height * 0.12)}px sans-serif`;
+    ctx.fillText(roomsLabel, canvas.width * 0.44, canvas.height * 0.82);
+  }
   return canvasPanel(canvas, { width, height, x, y, z, facing });
 }
 

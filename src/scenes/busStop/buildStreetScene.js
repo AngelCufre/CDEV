@@ -20,12 +20,14 @@ import {
 } from '../../world/buildings.js';
 import { addParkedCar } from '../../world/vehicles.js';
 import { createGlowMaterial, addGlow } from '../../world/glow.js';
+import { createBusStopGuide } from './stopGuide.js';
 import {
   street,
   sidewalk,
   housesFrontZ,
   home,
   busStop,
+  trashBins,
   walkableX,
   lampPosts,
   sidewalkTrees,
@@ -279,9 +281,7 @@ function buildUtilities(parts) {
 /** Banco, tachos, buzones, señales y rejillas del cordón. */
 function buildStreetFurniture(parts) {
   addBench(parts, { x: BENCH.x, z: BENCH.z, length: BENCH.halfLength * 2 });
-  addTrashBin(parts, { x: 0.3, z: 6.05 });
-  addTrashBin(parts, { x: -14.2, z: -4.1, color: 0x3d3d3d });
-  addTrashBin(parts, { x: 10.2, z: -6.05 });
+  for (const bin of trashBins) addTrashBin(parts, bin);
   addMailbox(parts, { x: MAILBOX.x, z: MAILBOX.z, facing: -1 });
   addMailbox(parts, { x: -2.6, z: -(sidewalk.farZ + 0.35), facing: 1, color: 0x2b4a7a });
   addMailbox(parts, { x: 6.2, z: -(sidewalk.farZ + 0.35), facing: 1 });
@@ -374,7 +374,7 @@ function buildGrass() {
 }
 
 /** Cajas de colisión: la vereda es la zona caminable y lo demás la rodea. */
-function buildObstacles() {
+export function buildObstacles() {
   const obstacles = [];
   const add = (minX, minZ, maxX, maxZ) =>
     obstacles.push(
@@ -407,6 +407,7 @@ function buildObstacles() {
   add(BENCH.x - BENCH.halfLength, BENCH.minZ, BENCH.x + BENCH.halfLength, BENCH.maxZ);
   addPost(SIGN.x, SIGN.z, 0.05);
   addPost(MAILBOX.x, MAILBOX.z, 0.2);
+  for (const bin of trashBins) addPost(bin.x, bin.z, bin.radius);
   for (const x of HOME_SHRUBS) addPost(x, housesFrontZ - 0.7, 0.45);
   return obstacles;
 }
@@ -450,6 +451,7 @@ export function buildStreetScene(reflections) {
   for (const lamp of lampPosts) addLampPost(parts, lamp);
   const sign = buildBusStopPole(parts);
 
-  group.add(mergeParts(parts, 'street-landscape'), buildGrass(), sign, cables);
-  return { group, obstacles: buildObstacles() };
+  const guide = createBusStopGuide();
+  group.add(mergeParts(parts, 'street-landscape'), buildGrass(), sign, cables, guide.group);
+  return { group, obstacles: buildObstacles(), guide };
 }

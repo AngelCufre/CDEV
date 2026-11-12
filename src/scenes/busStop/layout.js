@@ -30,6 +30,13 @@ export const home = { x: -6.5, gateWidth: 1.2, lotHalfWidth: 3 };
 /** Poste de la parada (sin techo). El colectivo frena con la puerta a su altura. */
 export const busStop = { x: 2, z: 3.95 };
 
+/** Mismas posiciones y radio para dibujar los tachos y bloquear el paso. */
+export const trashBins = [
+  { x: 0.3, z: 6.05, radius: 0.28 },
+  { x: -14.2, z: -4.1, radius: 0.28, color: 0x3d3d3d },
+  { x: 10.2, z: -6.05, radius: 0.28 },
+];
+
 /** Zona caminable: la vereda, entre estos extremos en X. */
 export const walkableX = { min: -16, max: 16 };
 

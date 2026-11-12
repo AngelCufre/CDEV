@@ -46,6 +46,7 @@ export class BusStopScene {
     };
     const world = buildStreetScene(this.reflections);
     this.scene.add(world.group);
+    this.stopGuide = world.guide;
 
     this.sky = buildSky(SKY_RADIUS);
     this.scene.add(this.sky);
@@ -106,6 +107,7 @@ export class BusStopScene {
     this.rain.update(delta, cameraPosition);
     this.traffic.update(delta);
     this.narrative.update(delta);
+    this.stopGuide.update(delta, this.narrative.machine.currentName === 'GOING');
   }
 
   /** Reflejos del piso mojado, con la cámara ya lista para el frame. */

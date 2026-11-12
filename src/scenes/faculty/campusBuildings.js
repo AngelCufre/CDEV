@@ -572,6 +572,7 @@ function buildFrcBuilding(ctx) {
       z: -18.5,
       facing: 'x+',
       buildingName: 'Posseto',
+      roomsLabel: 'AULAS 900',
     }),
   );
   for (const z of [e.minZ + 0.4, e.maxZ - 0.4]) {

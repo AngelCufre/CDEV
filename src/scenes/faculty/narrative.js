@@ -56,7 +56,7 @@ export function createFacultyNarrative({
   const objectives = {
     buscar: `Llegá al parcial · Encontrá el ${facultad.aula} · [Shift] correr · [R] celular`,
     edificio:
-      `Andá al edificio Inchaurrondo (aulas 400), al lado del Posseto y frente al patio · ` +
+      `Seguí la flecha amarilla hasta el Inchaurrondo (aulas 400), al lado del Posseto y frente al patio · ` +
       `1° piso · ${facultad.aula}`,
     subir: `Subí al 1° piso: el ${facultad.aula} es arriba`,
     pasillo: `Buscá el ${facultad.aula} en el pasillo`,
@@ -233,6 +233,7 @@ export function createFacultyNarrative({
   return {
     machine,
     isExploring,
+    needsBuildingGuide: () => isExploring() && !context.inAulas400,
     say,
     /** Mira por la mirilla de otra aula: nunca es la suya. */
     peek(number) {

@@ -1,4 +1,4 @@
-import { StatsHud, STAT_INFO, statIcon, createStatChip } from './StatsHud.js';
+import { StatsHud, STAT_INFO, statIcon, createStatChip, isVisibleStat } from './StatsHud.js';
 
 /**
  * UI en HTML/CSS superpuesta al canvas (no texto 3D).
@@ -46,7 +46,7 @@ export class Overlay {
       this.toast,
       this.phone,
       this.notesViewer,
-      // Encima del visor de apuntes, para ver subir la preparación mientras se lee.
+      // Encima del visor de apuntes, para seguir viendo el estrés mientras se lee.
       this.stats.el,
       this.fadeToBlack,
       this.summary,
@@ -153,13 +153,21 @@ export class Overlay {
   _buildSceneTitle() {
     const el = document.createElement('div');
     el.className = 'scene-title';
-    el.innerHTML = '<p class="scene-title-kicker"></p><h2></h2>';
+    el.innerHTML = '<p class="scene-title-kicker"></p><h2></h2><p class="scene-title-detail"></p>';
     return el;
   }
 
-  showSceneTitle(title, kicker = '') {
+  showSceneTitle(
+    title,
+    kicker = '',
+    detail = '',
+    { compact = false, action = Boolean(detail) } = {},
+  ) {
     this.sceneTitle.querySelector('.scene-title-kicker').textContent = kicker;
     this.sceneTitle.querySelector('h2').textContent = title;
+    this.sceneTitle.querySelector('.scene-title-detail').textContent = detail;
+    this.sceneTitle.classList.toggle('action', action);
+    this.sceneTitle.classList.toggle('compact', compact);
     this.sceneTitle.classList.add('visible');
   }
 
@@ -210,20 +218,24 @@ export class Overlay {
   _buildFadeToBlack() {
     const el = document.createElement('div');
     el.className = 'fade-to-black';
-    el.innerHTML = '<span class="fade-text">Continuará…</span><div class="fade-report"></div>';
+    el.innerHTML =
+      '<span class="fade-text">Continuará…</span><p class="fade-message"></p><div class="fade-report"></div>';
     return el;
   }
 
   /**
    * Fundido a negro con un texto centrado ("Continuará…", "Minutos después…"). `report`
    * ([{ key, delta }], de PlayerStats.sceneDeltas) muestra debajo cómo cambiaron los
-   * stats en la escena que termina.
+   * stats en la escena que termina. `message` agrega una frase debajo del título.
    */
-  showFadeToBlack(text = 'Continuará…', report = []) {
+  showFadeToBlack(text = 'Continuará…', report = [], message = '') {
     this.fadeToBlack.querySelector('.fade-text').textContent = text;
+    this.fadeToBlack.querySelector('.fade-message').textContent = message;
     const reportEl = this.fadeToBlack.querySelector('.fade-report');
     reportEl.replaceChildren(
-      ...report.map(({ key, delta }) => createStatChip(key, delta, { withIcon: true })),
+      ...report
+        .filter(({ key }) => isVisibleStat(key))
+        .map(({ key, delta }) => createStatChip(key, delta, { withIcon: true })),
     );
     this.fadeToBlack.classList.add('visible');
   }
@@ -419,7 +431,9 @@ export class Overlay {
         item.append(
           scene,
           text,
-          ...Object.entries(cambios).map(([key, amount]) => createStatChip(key, amount)),
+          ...Object.entries(cambios)
+            .filter(([key]) => isVisibleStat(key))
+            .map(([key, amount]) => createStatChip(key, amount)),
         );
         return item;
       }),
@@ -436,6 +450,7 @@ export class Overlay {
   /** Deja la UI limpia para la escena siguiente. No toca el fundido a negro. */
   resetForSceneChange() {
     this.hideHint();
+    this.hideSceneTitle();
     this.setCrosshairVisible(false);
     this.hideNarrativeText();
     this.clearNotifications();
@@ -452,6 +467,7 @@ export class Overlay {
     const el = document.createElement('div');
     el.className = 'notes-viewer';
     el.innerHTML = `
+      <p class="notes-tip"></p>
       <div class="notes-stage">
         <div class="notes-arrow notes-prev">‹</div>
         <div class="notes-page"><img alt="Hoja de apuntes" /></div>
@@ -469,9 +485,11 @@ export class Overlay {
   }
 
   /** Abre el visor en la primera hoja. `pages` es una lista de { url }. */
-  openNotes(pages) {
+  openNotes(pages, { tip = '' } = {}) {
     this._notesPages = pages;
     this._notesIndex = 0;
+    this.notesViewer.querySelector('.notes-tip').textContent = tip;
+    this.notesViewer.classList.toggle('with-tip', Boolean(tip));
     this._renderNotesPage(null);
     this.notesViewer.classList.add('visible');
   }

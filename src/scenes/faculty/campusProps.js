@@ -590,9 +590,10 @@ function buildFurniture(ctx) {
       align: 'left',
       header: { text: 'UTN · FRC', size: 0.07, background: '#1d3557', color: '#ffffff' },
       lines: [
-        { text: '↑ Galería · Patio central', size: 0.06, bold: true },
+        { text: '↑ Edificio Central · aulas 200', size: 0.055, bold: true },
+        { text: '   Galería · Patio central', size: 0.05 },
         { text: '   Escalera vidriada', size: 0.05 },
-        { text: '← Edificio Posseto', size: 0.06, bold: true },
+        { text: '← Edificio Posseto · aulas 900', size: 0.055, bold: true },
         { text: '← Inchaurrondo · aulas 400', size: 0.05 },
       ],
     }),
