@@ -6,6 +6,7 @@ import { buildSky, buildRain } from '../../world/weather.js';
 import { WetReflection } from '../../world/wetReflection.js';
 import { buildBusInterior } from './buildInterior.js';
 import { createPassengers } from './passengers.js';
+import { createSidewalkWatcher } from './sidewalkWatcher.js';
 import { createCityStrip } from './cityStrip.js';
 import { createDrive } from './drive.js';
 import { createBusRideNarrative } from './narrative.js';
@@ -40,7 +41,7 @@ export class BusRideScene {
     this.interior = buildBusInterior();
     this.scene.add(this.interior.group);
 
-    this.passengers = createPassengers();
+    this.passengers = createPassengers({ camera });
     this.scene.add(this.passengers.group);
 
     // La calle mojada refleja la ciudad que pasa (se ve por las ventanillas).
@@ -51,6 +52,8 @@ export class BusRideScene {
     });
     this.strip = createCityStrip({ reflection: this.reflection });
     this.scene.add(this.strip.group);
+    this.sidewalkWatcher = createSidewalkWatcher({ camera });
+    this.scene.add(this.sidewalkWatcher.group);
     this.scene.add(buildSky(42));
 
     // Lluvia solo afuera: a los costados del colectivo y delante del parabrisas.
@@ -157,6 +160,7 @@ export class BusRideScene {
     this.drive.update(delta);
     for (const rain of this.rains) rain.update(delta, this._rainCenter);
     this.passengers.update(delta);
+    this.sidewalkWatcher.update(delta, this.drive.speed);
     this.narrative.update(delta);
     this._applySway(delta);
   }

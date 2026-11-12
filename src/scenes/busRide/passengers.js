@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeParts, seededRandom } from '../../world/lowPoly.js';
+import { createSignHolder } from './signHolder.js';
 import { addStandingPerson, addSeatedPerson, randomPersonStyle } from '../../world/people.js';
 import {
   bus,
@@ -52,15 +53,22 @@ function buildAnimatedPerson(style, name) {
  * pasillo y el chofer. Dos se animan: el que se baja en la parada intermedia (deja
  * el asiento libre) y el que se sienta antes que el jugador.
  */
-export function createPassengers() {
+export function createPassengers({ camera }) {
   const random = seededRandom(23);
   const group = new THREE.Group();
   group.name = 'passengers';
 
   // ---------- Los que no se mueven (un solo mesh) ----------
   const parts = [];
+  const signSeat = { x: seatRowsX[0], z: leftSeatsZ[1] }; // fondo, del lado del pasillo
+  let signStyle = null;
   for (const x of seatRowsX) {
-    for (const z of leftSeatsZ) addSeatedPerson(parts, { x, z, style: randomPersonStyle(random) });
+    for (const z of leftSeatsZ) {
+      const style = randomPersonStyle(random);
+      if (x === signSeat.x && z === signSeat.z)
+        signStyle = style; // ese lo anima signHolder
+      else addSeatedPerson(parts, { x, z, style });
+    }
   }
   for (const x of rightSeatRowsX) {
     if (x === freedSeat.x) continue; // ese lo ocupa el que se baja (animado)
@@ -73,6 +81,10 @@ export function createPassengers() {
     obstacles.push(personBox(person.x, person.z));
   }
   group.add(mergeParts(parts, 'passengers-static'));
+
+  // ---------- El del fondo con el cartel ----------
+  const signHolder = createSignHolder({ camera, style: signStyle, ...signSeat });
+  group.add(signHolder.group);
 
   // ---------- El que se baja ----------
   const leaver = buildAnimatedPerson(randomPersonStyle(random), 'passenger-leaving');
@@ -170,6 +182,7 @@ export function createPassengers() {
     startLeaving,
     takeSeat,
     update(delta) {
+      signHolder.update(delta);
       updateLeaving(delta);
       updateSitting(delta);
     },
