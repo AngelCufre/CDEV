@@ -29,8 +29,8 @@ export const parkingLane = { minZ: 36.6, maxZ: 41.8 };
 /** Acceso de autos (con barrera) en la reja oeste. */
 export const carGate = { minZ: parkingLane.minZ, maxZ: parkingLane.maxZ };
 
-/** Recién entrado por el acceso de autos, mirando hacia el estacionamiento (este). */
-export const playerStart = { x: -29.5, z: 39.2, yaw: -Math.PI / 2 };
+/** Sobre el sendero de entrada, mirando hacia los edificios y el patio (norte). */
+export const playerStart = { x: 0, z: 26, yaw: 0 };
 
 // ---------- Pisos de afuera ----------
 

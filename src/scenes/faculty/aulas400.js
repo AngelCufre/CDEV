@@ -134,13 +134,14 @@ function buildShell(ctx) {
       height: 0.42,
       x: (aulas400.hallDoor.minX + aulas400.hallDoor.maxX) / 2,
       y: 2.95,
-      z: H.maxZ + 0.06,
+      // Delante de los parantes de la puerta para que ninguno corte el texto.
+      z: H.maxZ + 0.09,
       facing: 'z+',
       fog: true,
       background: '#1d3557',
       color: '#ffffff',
       lines: [
-        { text: 'EDIFICIO DE AULAS', size: 0.1, bold: true },
+        { text: 'EDIFICIO INCHAURRONDO', size: 0.1, bold: true },
         { text: 'Aulas 401 – 412', size: 0.085 },
       ],
     }),

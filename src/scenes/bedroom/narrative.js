@@ -86,6 +86,9 @@ export function createNarrative({
         ctx.timer = 0;
         ctx.hasStood = false;
         ctx.realized = false;
+        ctx.exitHintElapsed = 0;
+        ctx.exitHintShown = false;
+        ctx.introSubtitleRemaining = null;
         ctx.pagesRead = new Set();
         // Empieza el día: los stats vuelven a cero y el HUD espera a que se levante.
         stats.reset();
@@ -179,10 +182,15 @@ export function createNarrative({
         if (!ctx.hasStood) {
           applyPose(poses.standing);
           ctx.hasStood = true;
+          ctx.introSubtitleRemaining = config.gettingUp.subtituloSegundos;
+          overlay.showNarrativeText(
+            `Hoy rindo ${config.narrative.materiaParcial} a las ${config.narrative.horaParcial} en el ${config.narrative.aula}. Mejor miro la hora antes de seguir repasando.`,
+          );
+          overlay.setObjective('Averiguá qué hora es · Mirá el despertador o el celular [E]');
         }
         input.setLookEnabled(true);
       },
-      onUpdate(delta) {
+      onUpdate(delta, ctx) {
         movement.update(delta);
         interaction.update(delta * 1000);
         if (interaction.hovered) {
@@ -190,8 +198,24 @@ export function createNarrative({
         } else {
           overlay.hideHint();
         }
+        if (ctx.introSubtitleRemaining !== null) {
+          ctx.introSubtitleRemaining -= delta;
+          if (ctx.introSubtitleRemaining <= 0) {
+            ctx.introSubtitleRemaining = null;
+            overlay.hideNarrativeText();
+          }
+        }
+        if (ctx.realized && !ctx.exitHintShown) {
+          ctx.exitHintElapsed += delta;
+          if (ctx.exitHintElapsed >= config.realization.pistaSalidaSegundos) {
+            ctx.exitHintShown = true;
+            overlay.setObjective('Salí por la puerta junto al interruptor · apuntá y presioná [E]');
+          }
+        }
       },
-      onExit() {
+      onExit(ctx) {
+        overlay.hideNarrativeText();
+        ctx.introSubtitleRemaining = null;
         overlay.hideHint();
         overlay.setCrosshairVisible(false);
       },
@@ -248,7 +272,7 @@ export function createNarrative({
         if (!ctx.textShown && ctx.timer >= config.realization.textoDelaySegundos) {
           ctx.textShown = true;
           overlay.showNarrativeText(
-            `Son las ${config.narrative.horaDespertar}. El parcial es a las ${config.narrative.horaParcial}.`,
+            `¡Son las ${config.narrative.horaDespertar}! El parcial de ${config.narrative.materiaParcial} es a las ${config.narrative.horaParcial} en el ${config.narrative.aula}. Tengo que salir ya.`,
           );
           stats.trigger('dormido');
         }
@@ -267,7 +291,7 @@ export function createNarrative({
         camera.updateProjectionMatrix();
         overlay.hideNarrativeText();
         overlay.clearNotifications();
-        overlay.setObjective('¡Llegás tarde! Salí por la puerta');
+        overlay.setObjective(`Llegá al parcial en el ${config.narrative.aula} · Salí por la puerta`);
       },
     },
 

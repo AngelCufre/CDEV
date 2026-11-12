@@ -75,7 +75,7 @@ export class StatsHud {
     this.panel = this.el.querySelector('.stats-panel');
     this.feed = this.el.querySelector('.stats-feed');
     this.breath = this.el.querySelector('.stats-breath');
-    this._breathState = null;
+    this._breathState = undefined;
     this._stressHue = null;
 
     this._rows = {};
@@ -128,12 +128,14 @@ export class StatsHud {
       ? 'active'
       : values.estres >= config.stats.respirar.avisoDesde
         ? 'hint'
-        : null;
+        : 'idle';
     if (breathState !== this._breathState) {
       this._breathState = breathState;
       this.breath.className = `stats-breath ${breathState ?? ''}`;
       this.breath.querySelector('.breath-text').innerHTML =
-        breathState === 'active' ? 'Respirando hondo…' : 'Mantené <kbd>Espacio</kbd> para respirar';
+        breathState === 'active'
+          ? 'Respirando hondo… el estrés está bajando'
+          : 'Bajá el estrés: mantené <kbd>Espacio</kbd> quieto para respirar';
     }
   }
 

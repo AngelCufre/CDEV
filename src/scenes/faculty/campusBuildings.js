@@ -571,6 +571,7 @@ function buildFrcBuilding(ctx) {
       y: 1.75,
       z: -18.5,
       facing: 'x+',
+      buildingName: 'Posseto',
     }),
   );
   for (const z of [e.minZ + 0.4, e.maxZ - 0.4]) {

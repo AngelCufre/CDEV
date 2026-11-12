@@ -269,6 +269,41 @@ body {
 }
 
 /* ---------- Notificaciones / texto narrativo ---------- */
+.scene-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(90%, 42rem);
+  transform: translate(-50%, -44%);
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+}
+
+.scene-title.visible {
+  transform: translate(-50%, -50%);
+  opacity: 1;
+}
+
+.scene-title-kicker {
+  margin-bottom: 0.45rem;
+  color: #e7c887;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.scene-title h2 {
+  font-size: clamp(2.2rem, 7vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
 .narrative-text {
   position: absolute;
   top: 12%;
@@ -436,7 +471,7 @@ body {
   top: 1.25rem;
   left: 1.25rem;
   max-width: 22rem;
-  padding: 0.5rem 0.85rem;
+  padding: 0.55rem 0.85rem 0.65rem;
   border-left: 3px solid #d6b16b;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
@@ -448,9 +483,37 @@ body {
     transform 0.3s ease;
 }
 
+.objective-label {
+  display: block;
+  margin-bottom: 0.16rem;
+  color: #e7c887;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.objective-text {
+  display: block;
+  line-height: 1.35;
+}
+
 .objective.visible {
   opacity: 1;
   transform: translateX(0);
+}
+
+.objective.updated {
+  animation: objective-pulse 0.6s ease-out;
+}
+
+@keyframes objective-pulse {
+  0% {
+    background: rgba(214, 177, 107, 0.36);
+  }
+  100% {
+    background: rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* ---------- Aviso breve ---------- */
@@ -831,29 +894,42 @@ body {
 
 /* Aviso / indicador de respirar hondo. */
 .stats-breath {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.72rem;
+  margin-top: 0.55rem;
+  padding: 0.48rem 0.55rem;
+  border: 1px solid rgba(143, 211, 199, 0.28);
+  border-radius: 7px;
+  background: rgba(143, 211, 199, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
-.stats-breath.hint,
-.stats-breath.active {
-  display: flex;
+.stats-breath.hint {
+  border-color: rgba(231, 200, 135, 0.75);
+  background: rgba(214, 177, 107, 0.2);
+  color: #fff4d9;
+  animation: breath-reminder 1.8s ease-in-out infinite;
 }
 
 .stats-breath.active {
+  border-color: rgba(143, 211, 199, 0.7);
+  background: rgba(143, 211, 199, 0.18);
   color: #bdf0e6;
 }
 
 .stats-breath kbd {
-  padding: 0 0.3em;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 3px;
+  padding: 0.08em 0.38em;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
   font-family: inherit;
+  font-weight: 800;
 }
 
 .breath-ring {
@@ -867,6 +943,16 @@ body {
 .stats-breath.active .breath-ring {
   background: rgba(143, 211, 199, 0.35);
   animation: breath 4s ease-in-out infinite;
+}
+
+@keyframes breath-reminder {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(214, 177, 107, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(214, 177, 107, 0.35);
+  }
 }
 
 @keyframes breath {

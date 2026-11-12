@@ -15,6 +15,7 @@ export class Overlay {
     this.crosshair = this._buildCrosshair();
     this.eyelid = this._buildEyelid();
     this.vignette = this._buildVignette();
+    this.sceneTitle = this._buildSceneTitle();
     this.narrativeText = this._buildNarrativeText();
     this.notificationsContainer = this._buildNotificationsContainer();
     this.fadeToBlack = this._buildFadeToBlack();
@@ -36,6 +37,7 @@ export class Overlay {
       this.startScreen,
       this.eyelid,
       this.vignette,
+      this.sceneTitle,
       this.crosshair,
       this.hint,
       this.narrativeText,
@@ -64,6 +66,7 @@ export class Overlay {
         </p>
         <ul class="start-controls">
           <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>Caminar</li>
+          <li><span class="keys"><kbd>Shift</kbd></span>Correr</li>
           <li><span class="keys"><kbd>Mouse</kbd></span>Mirar</li>
           <li><span class="keys"><kbd>E</kbd><kbd>Click</kbd></span>Interactuar</li>
           <li><span class="keys"><kbd>R</kbd></span>Celular</li>
@@ -144,6 +147,24 @@ export class Overlay {
   /** intensidad entre 0 (sin viñeta) y 1 (bordes completamente oscuros, centro visible). */
   setVignetteIntensity(intensity) {
     this.vignette.style.opacity = String(Math.max(0, Math.min(1, intensity)));
+  }
+
+  // ---------- Título de escena ----------
+  _buildSceneTitle() {
+    const el = document.createElement('div');
+    el.className = 'scene-title';
+    el.innerHTML = '<p class="scene-title-kicker"></p><h2></h2>';
+    return el;
+  }
+
+  showSceneTitle(title, kicker = '') {
+    this.sceneTitle.querySelector('.scene-title-kicker').textContent = kicker;
+    this.sceneTitle.querySelector('h2').textContent = title;
+    this.sceneTitle.classList.add('visible');
+  }
+
+  hideSceneTitle() {
+    this.sceneTitle.classList.remove('visible');
   }
 
   // ---------- Texto narrativo (hora, etc.) ----------
@@ -231,13 +252,24 @@ export class Overlay {
   _buildObjective() {
     const el = document.createElement('div');
     el.className = 'objective';
+    el.innerHTML =
+      '<span class="objective-label">Objetivo</span><span class="objective-text"></span>';
     return el;
   }
 
   /** Muestra el objetivo actual, o lo oculta con `null`. */
   setObjective(text) {
-    this.objective.textContent = text ?? '';
+    const objectiveText = this.objective.querySelector('.objective-text');
+    const nextText = text ?? '';
+    const changed = objectiveText.textContent !== nextText;
+    objectiveText.textContent = nextText;
     this.objective.classList.toggle('visible', Boolean(text));
+    if (text && changed) {
+      this.objective.classList.remove('updated');
+      // Reinicia la animación aunque dos objetivos se actualicen en frames consecutivos.
+      void this.objective.offsetWidth;
+      this.objective.classList.add('updated');
+    }
   }
 
   // ---------- Aviso breve (mensaje nuevo, etc.) ----------

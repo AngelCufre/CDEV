@@ -19,7 +19,7 @@ import { createDespertarNarrative } from './narrative.js';
 /**
  * Escena 6 y última: el despertar. Es la habitación del principio, pero con las cortinas
  * cerradas y en penumbra: el parcial fue una pesadilla. Un haz de sol entra por la rendija
- * de las cortinas y ilumina la pared donde cuelga el título de Ingeniero en Sistemas.
+ * de las cortinas y ilumina la pared donde cuelga el título de Licenciado en Sistemas.
  */
 export class DespertarScene {
   constructor({ engine, input, audio, overlay, stats }) {

@@ -10,6 +10,7 @@ export const config = {
     horaParcial: '08:00',
     horaDespertar: '07:52',
     aula: 'Aula 411',
+    materiaParcial: 'Diseño de Sistemas',
     notificaciones: [
       '¿Dónde estás? Ya empezó a tomar lista.',
       'Parcial de hoy, Aula 411 — 8:00 hs.',
@@ -21,6 +22,7 @@ export const config = {
   player: {
     alturaOjos: 1.65,
     velocidadCaminar: 2.6, // m/s
+    multiplicadorCorrer: 1.75, // mantener Shift
     radioColision: 0.35,
     fov: 70,
     near: 0.05,
@@ -30,6 +32,7 @@ export const config = {
   // --- Animación de levantarse ---
   gettingUp: {
     duracionSegundos: 2.2,
+    subtituloSegundos: 5,
     // posición/rotación de la cámara acostada vs. sentada se definen en narrative.js
   },
 
@@ -50,6 +53,8 @@ export const config = {
     notificacionesDelaySegundos: 1.3,
     // Después de esto vuelve el control: hay que salir por la puerta.
     volverAExplorarSegundos: 5.5,
+    // Si ya entendió que llega tarde pero no encuentra la salida, aparece una pista visual.
+    pistaSalidaSegundos: 10,
     zoomFov: 62, // el FOV baja desde config.player.fov para dar sensación de acercamiento
   },
 
@@ -68,6 +73,8 @@ export const config = {
     // El primero viene lleno y no para; el segundo sí.
     primerColectivoSegundos: 8, // desde que llega a la parada
     segundoColectivoSegundos: 20, // desde que el primero se pierde de vista
+    // Si todavía no llegó al poste, se refuerza la referencia visual de la parada.
+    pistaCaminoSegundos: 5,
     linea: '18',
     destino: 'CIUDAD UNIV.',
     bateriaCelular: 9, // %
@@ -80,13 +87,9 @@ export const config = {
     // Llegan al celular cuando el reloj de juego marca esa hora.
     notificaciones: [
       { hora: '07:58', de: 'Mamá', texto: '¿Ya saliste? Llevá paraguas que llueve fuerte' },
-      { hora: '08:00', de: 'Grupo Parcial', texto: 'Ya están repartiendo los temas 😬' },
-      {
-        hora: '08:02',
-        de: 'Campus Virtual',
-        texto: 'Recordatorio: no se permite el ingreso pasados 15 min del inicio.',
-      },
-      { hora: '08:04', de: 'Grupo Parcial', texto: '¿Venís? Te guardo lugar al fondo' },
+      { hora: '08:00', de: 'Grupo Parcial', texto: 'Ya están repartiendo los parciales 😬' },
+      { hora: '08:02', de: 'Mamá', texto: '¿Pudiste tomar el colectivo? Avisame cuando puedas' },
+      { hora: '08:04', de: 'Mamá', texto: 'Tranquilo. Respirá hondo, vas a llegar' },
     ],
     autos: {
       intervaloMinSegundos: 5,
@@ -156,14 +159,10 @@ export const config = {
     anuncioFacultadSegundos: 10,
     paradaFinal: 'Ciudad Universitaria',
     notificaciones: [
-      { hora: '08:06', de: 'Grupo Parcial', texto: 'Ya están todos escribiendo… ¿venís?' },
+      { hora: '08:06', de: 'Mamá', texto: '¿Subiste al colectivo?' },
       { hora: '08:08', de: 'Mamá', texto: '¿Pudiste agarrar el colectivo?' },
-      {
-        hora: '08:10',
-        de: 'Grupo Parcial',
-        texto: 'El profe dice que hasta 8:15 te deja entrar 🙏',
-      },
-      { hora: '08:13', de: 'Grupo Parcial', texto: '¿¿Dónde estás??' },
+      { hora: '08:10', de: 'Mamá', texto: 'No te desesperes. Concentrate en llegar' },
+      { hora: '08:13', de: 'Mamá', texto: 'Cuando bajes, avisame que estás bien' },
     ],
   },
 
@@ -186,22 +185,20 @@ export const config = {
       { desde: 30, texto: 'Con la ropa mojada… pero llegaste a la facu.' },
       { desde: 0, texto: 'Casi sin mojarte… y llegaste a la facu.' },
     ],
-    // A los segundos de entrar escribe el grupo (no depende de la hora, para que llegue
+    // A los segundos de entrar escribe Mamá (no depende de la hora, para que llegue
     // aunque se haya tardado en el colectivo).
     mensajeAlEntrarSegundos: 3,
-    mensajeAlEntrar: { de: 'Grupo Parcial', texto: 'Ya estamos todos en la 411… ¿llegaste?' },
-    // Si a los `segundos` todavía no sabe adónde ir, el grupo le explica.
+    mensajeAlEntrar: {
+      de: 'Mamá',
+      texto: '¿Llegaste a la facultad? Avisame cuando entres al aula',
+    },
+    // Si a los `segundos` todavía no sabe adónde ir, el objetivo muestra la ruta completa.
     pista: {
-      segundos: 60,
-      mensaje: {
-        de: 'Grupo Parcial',
-        texto:
-          'La 411 es en el edificio de las 400, al lado del UTN FRC, frente al patio. 1° piso 🙄',
-      },
+      segundos: 10,
     },
     notificaciones: [
-      { hora: '08:15', de: 'Grupo Parcial', texto: 'Y cuarto… ¿llegás?' },
-      { hora: '08:17', de: 'Grupo Parcial', texto: 'El profe está por cerrar la puerta 😬' },
+      { hora: '08:15', de: 'Mamá', texto: 'Respirá hondo y buscá el aula con calma' },
+      { hora: '08:17', de: 'Mamá', texto: 'Seguro ya estás cerca. Vos podés' },
       { hora: '08:19', de: 'Mamá', texto: '¿Llegaste bien? Avisame' },
     ],
     // Lo que pasa al usar cada cosa con E (o al llegar a un lugar): el texto, el evento de
@@ -217,24 +214,24 @@ export const config = {
       },
       edificioFrc: {
         texto:
-          'Cerrado hasta las 9. En el vidrio: «Aulas 400: el edificio de al lado, entrando por el patio».',
+          'Edificio Posseto. Cerrado hasta las 9. En el vidrio: «Aulas 400: edificio Inchaurrondo, entrando por el patio».',
         evento: 'edificioEquivocado',
         pista: true,
       },
       avisos: {
         texto:
-          'PARCIALES · Diseño de Sistemas 3K5 → Aula 411, 1° piso del edificio de aulas 400 (al lado del UTN FRC).',
+          'PARCIALES · Diseño de Sistemas 3K5 → Aula 411, 1° piso del edificio Inchaurrondo (aulas 400).',
         evento: 'avisos',
         pista: true,
       },
       centralArriba: {
         texto:
-          'Edificio Central: aulas 200… La 411 es en el edificio de aulas 400, al otro lado del patio.',
+          'Edificio Central: aulas 200… La 411 es en el edificio Inchaurrondo, aulas 400, al otro lado del patio.',
         evento: 'edificioEquivocado',
         pista: true,
       },
       edificioMadders: {
-        texto: 'Edificio Madders: cerrado. Acá no están las aulas 400.',
+        texto: 'Edificio Madders: cerrado. Acá no está el Inchaurrondo ni las aulas 400.',
         evento: 'edificioEquivocado',
       },
       puertaPlantaBaja: {
@@ -262,8 +259,8 @@ export const config = {
     horaEntrega: '10:00',
     // Aunque se llegue muy tarde, el parcial dura al menos esto (minutos de juego).
     minutosMinimos: 20,
-    // Solo en el parcial: cada minuto de juego pasa en un segundo real.
-    segundosPorMinuto: 1,
+    // Solo en el parcial: cada minuto de juego pasa en medio segundo real.
+    segundosPorMinuto: 0.5,
     // Cuándo pasa cada cosa, como fracción del tiempo que dura el parcial.
     rafagas: [
       { en: 0.22, hojas: 1 },
@@ -278,8 +275,8 @@ export const config = {
     // Mensajes que llegan durante el parcial (el celular vibra en el bolsillo).
     notificaciones: [
       { hora: '08:40', de: 'Mamá', texto: '¿Llegaste? ¿Cómo te está yendo? 🙏' },
-      { hora: '09:15', de: 'Grupo Parcial', texto: 'El 3 es imposible 💀' },
-      { hora: '09:45', de: 'Grupo Parcial', texto: 'Yo ya entregué, te espero afuera' },
+      { hora: '09:15', de: 'Mamá', texto: 'Confiá en lo que estudiaste. Te va a ir bien' },
+      { hora: '09:45', de: 'Mamá', texto: 'Después contame cómo te fue. Te quiero' },
     ],
     // La profesora camina entre los bancos (m/s) y se para cada tanto adelante.
     profesora: {
@@ -328,17 +325,31 @@ export const config = {
       { en: 1.6, texto: '…¿El parcial?', segundos: 2.2 },
       { en: 4.2, texto: 'Fue un sueño. Una pesadilla nada más.', segundos: 3.5, sonido: 'suspiro' },
     ],
-    objetivo: 'Mirá la pared iluminada',
-    textoTitulo: 'Ingeniero en Sistemas de Información',
+    tituloEscenaKicker: 'El despertar',
+    tituloEscena: 'Uf, qué pesadilla',
+    objetivo: 'Revisá el cuadro iluminado de la pared',
+    textoTitulo: 'Licenciado en Sistemas de Información',
     textoCierre: 'Todo iba a salir bien.',
     textoFinal: 'Fin',
     // Lo que dice el diploma de la pared.
     diploma: {
+      pais: 'REPÚBLICA ARGENTINA',
       universidad: 'UNIVERSIDAD TECNOLÓGICA NACIONAL',
       facultad: 'Facultad Regional Córdoba',
-      otorga: 'Otorga el título de',
-      titulo: 'INGENIERO EN SISTEMAS\nDE INFORMACIÓN',
-      a: 'a quien nunca dejó de intentarlo',
+      autoridades: 'El Rector de la Universidad y el Decano de la Facultad',
+      nombre: 'Tomás Ignacio Pereyra',
+      documento: 'DNI N.º 40.382.716',
+      nacimiento: '9 de septiembre de 2000',
+      lugarNacimiento: 'Córdoba, Argentina',
+      carrera: 'Licenciatura en Sistemas de Información',
+      fechaEgreso: '18 de diciembre de 2025',
+      fundamento: 'De conformidad con las disposiciones legales y estatutarias vigentes',
+      otorga: 'se le otorga el título de',
+      titulo: 'LICENCIADO EN SISTEMAS\nDE INFORMACIÓN',
+      expedicion: 'Córdoba, 12 de marzo de 2026',
+      registro: 'Registro N.º 014872 · Folio 286',
+      numero: 'DP N.º 00018472',
+      leyenda: 'MUESTRA FICTICIA · SIN VALIDEZ ACADÉMICA',
     },
   },
 

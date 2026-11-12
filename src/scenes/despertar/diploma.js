@@ -9,34 +9,78 @@ export const diplomaSpot = { x: room.width / 2, y: 1.5, z: 0.55 };
 const SHEET = { width: 0.56, height: 0.4 };
 const MARGIN = 0.05; // pasepartout + marco
 
-/** Sello rojo con una estrella, abajo a la derecha del diploma. */
-function drawSeal(ctx, x, y) {
+/** Emblema ornamental simplificado de la República, inspirado en el diploma de referencia. */
+function drawNationalEmblem(ctx, x, y) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = '#8c1d1d';
-  ctx.beginPath();
+  ctx.strokeStyle = '#30343b';
+  ctx.fillStyle = '#30343b';
+  ctx.lineWidth = 2;
   for (let i = 0; i < 24; i += 1) {
     const angle = (i / 24) * Math.PI * 2;
-    const radius = i % 2 === 0 ? 62 : 54;
-    ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * 31, Math.sin(angle) * 31);
+    ctx.lineTo(Math.cos(angle) * 42, Math.sin(angle) * 42);
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 220, 200, 0.55)';
-  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(0, 0, 42, 0, Math.PI * 2);
+  ctx.ellipse(0, 8, 27, 36, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.fillStyle = 'rgba(255, 225, 205, 0.75)';
   ctx.beginPath();
-  for (let i = 0; i < 10; i += 1) {
-    const angle = -Math.PI / 2 + (i / 10) * Math.PI * 2;
-    const radius = i % 2 === 0 ? 30 : 12;
-    ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
-  }
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(0, -17);
+  ctx.lineTo(0, 27);
+  ctx.moveTo(-13, 0);
+  ctx.lineTo(13, 0);
+  ctx.moveTo(-9, 23);
+  ctx.quadraticCurveTo(0, 30, 9, 23);
+  ctx.stroke();
   ctx.restore();
+}
+
+/** Isotipo geométrico de la UTN para el pie del diploma. */
+function drawUtnMark(ctx, x, y, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = '#20242a';
+  ctx.lineWidth = size * 0.12;
+  ctx.lineCap = 'square';
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2);
+  ctx.lineTo(0, size / 2);
+  ctx.moveTo(-size * 0.42, 0);
+  ctx.lineTo(size * 0.42, 0);
+  ctx.stroke();
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.42, side * size * 0.5);
+    ctx.lineTo(-size * 0.42, side * size * 0.18);
+    ctx.quadraticCurveTo(-size * 0.42, side * size * 0.08, -size * 0.2, side * size * 0.08);
+    ctx.lineTo(size * 0.2, side * size * 0.08);
+    ctx.quadraticCurveTo(size * 0.42, side * size * 0.08, size * 0.42, side * size * 0.18);
+    ctx.lineTo(size * 0.42, side * size * 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Dibuja una línea centrada y reduce la tipografía si no entra en el ancho disponible. */
+function drawFittedText(
+  ctx,
+  text,
+  y,
+  { size, maxWidth = 980, style = '', family = 'Georgia, serif' },
+) {
+  let fitted = size;
+  const setFont = () => {
+    ctx.font = `${style ? `${style} ` : ''}${fitted}px ${family}`;
+  };
+  setFont();
+  const measured = ctx.measureText(text).width;
+  if (measured > maxWidth) {
+    fitted = Math.floor((fitted * maxWidth) / measured);
+    setFont();
+  }
+  ctx.fillText(text, 560, y);
 }
 
 /** Una firma garabateada sobre una línea. */
@@ -58,7 +102,7 @@ function drawSignature(ctx, x, y, width, seed) {
   ctx.stroke();
 }
 
-/** Textura del diploma: pergamino con doble orla, texto centrado, firmas y sello. */
+/** Textura del diploma, recreada a partir de la referencia con todos los datos ficticios. */
 export function createDiplomaTexture(maxAnisotropy = 1) {
   const text = config.despertar.diploma;
   const canvas = document.createElement('canvas');
@@ -82,59 +126,70 @@ export function createDiplomaTexture(maxAnisotropy = 1) {
     ctx.fill();
   }
 
-  // Doble orla azul institucional con esquineros.
-  ctx.strokeStyle = '#1f3a5f';
-  ctx.lineWidth = 10;
-  ctx.strokeRect(34, 34, canvas.width - 68, canvas.height - 68);
+  // Filete sobrio, como el documento usado de referencia.
+  ctx.strokeStyle = 'rgba(46, 49, 54, 0.55)';
   ctx.lineWidth = 3;
-  ctx.strokeRect(54, 54, canvas.width - 108, canvas.height - 108);
-  ctx.fillStyle = '#1f3a5f';
-  for (const [cx, cy] of [
-    [54, 54],
-    [canvas.width - 54, 54],
-    [54, canvas.height - 54],
-    [canvas.width - 54, canvas.height - 54],
-  ]) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-13, -13, 26, 26);
-    ctx.restore();
-  }
+  ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(42, 42, canvas.width - 84, canvas.height - 84);
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#1f3a5f';
-  ctx.font = 'bold 44px Georgia, serif';
-  ctx.fillText(text.universidad, canvas.width / 2, 150);
-  ctx.font = 'italic 32px Georgia, serif';
-  ctx.fillStyle = '#4a5568';
-  ctx.fillText(text.facultad, canvas.width / 2, 198);
+  ctx.fillStyle = '#292d33';
+  drawNationalEmblem(ctx, 560, 76);
+  drawFittedText(ctx, text.pais, 128, { size: 28, style: 'bold' });
+  drawFittedText(ctx, text.universidad, 178, { size: 47, style: 'bold' });
+  drawFittedText(ctx, text.facultad, 226, { size: 38, style: 'italic' });
+  drawFittedText(ctx, text.autoridades, 271, { size: 27, style: 'italic' });
 
-  ctx.strokeStyle = '#a3823d';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(canvas.width / 2 - 170, 232);
-  ctx.lineTo(canvas.width / 2 + 170, 232);
-  ctx.stroke();
+  ctx.textAlign = 'left';
+  ctx.font = 'italic 25px Georgia, serif';
+  ctx.fillText('Por cuanto:', 86, 322);
+  ctx.textAlign = 'center';
+  drawFittedText(ctx, `${text.nombre}   ·   ${text.documento}`, 322, {
+    size: 31,
+    style: 'bold italic',
+    maxWidth: 820,
+  });
+  drawFittedText(
+    ctx,
+    `nacido el ${text.nacimiento} en ${text.lugarNacimiento}, ha cumplimentado`,
+    366,
+    { size: 25, style: 'italic' },
+  );
+  drawFittedText(ctx, 'los requisitos académicos correspondientes a la carrera', 405, {
+    size: 25,
+    style: 'italic',
+  });
+  drawFittedText(ctx, `${text.carrera}, el ${text.fechaEgreso}.`, 444, {
+    size: 27,
+    style: 'bold italic',
+  });
+  drawFittedText(ctx, text.fundamento, 490, { size: 25, style: 'italic' });
+  drawFittedText(ctx, text.otorga, 530, { size: 27, style: 'italic' });
 
-  ctx.fillStyle = '#4a5568';
-  ctx.font = '28px Georgia, serif';
-  ctx.fillText(text.otorga, canvas.width / 2, 292);
-
-  ctx.fillStyle = '#7a1f1f';
-  ctx.font = 'bold 66px Georgia, serif';
-  const lines = text.titulo.split('\n');
-  lines.forEach((line, index) => {
-    ctx.fillText(line, canvas.width / 2, 384 + index * 78);
+  ctx.fillStyle = '#601f24';
+  const titleLines = text.titulo.split('\n');
+  titleLines.forEach((line, index) => {
+    drawFittedText(ctx, line, 578 + index * 42, { size: 37, style: 'bold', maxWidth: 900 });
   });
 
-  ctx.fillStyle = '#4a5568';
-  ctx.font = 'italic 30px Georgia, serif';
-  ctx.fillText(text.a, canvas.width / 2, 384 + lines.length * 78 + 12);
+  ctx.fillStyle = '#292d33';
+  drawFittedText(ctx, text.expedicion, 674, { size: 23, style: 'italic' });
 
-  drawSignature(ctx, 140, 700, 270, 0.3);
-  drawSignature(ctx, 560, 700, 270, 2.1);
-  drawSeal(ctx, 985, 668);
+  drawSignature(ctx, 100, 722, 250, 0.3);
+  drawSignature(ctx, 770, 722, 250, 2.1);
+  drawUtnMark(ctx, 560, 715, 68);
+  ctx.font = 'bold 14px Georgia, serif';
+  ctx.fillText('DECANO', 225, 744);
+  ctx.fillText('RECTOR', 895, 744);
+  ctx.font = '14px Georgia, serif';
+  ctx.fillText(text.registro, 560, 760);
+  ctx.textAlign = 'right';
+  ctx.fillText(text.numero, 1020, 776);
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = 'rgba(41, 45, 51, 0.72)';
+  ctx.fillText(text.leyenda, 62, 776);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

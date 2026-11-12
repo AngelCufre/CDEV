@@ -14,7 +14,7 @@ import {
 } from './layout.js';
 
 /**
- * Narrativa de la escena 4, en la UTN: entra por el acceso de autos, bajo la lluvia, y
+ * Narrativa de la escena 4, en la UTN: entra por el sendero, bajo la lluvia, y
  * tiene que encontrar el aula 411. A cielo abierto se moja; bajo la galería, el puente o
  * adentro se seca. El UTN FRC está cerrado, las puertas de abajo del Central también y la
  * de emergencia no abre desde afuera; la torre vidriada lleva al pasillo del Central (aulas
@@ -54,8 +54,10 @@ export function createFacultyNarrative({
   });
 
   const objectives = {
-    buscar: `Encontrá el ${facultad.aula} · [R] mirar el celular`,
-    edificio: 'Andá al edificio de aulas 400, al lado del UTN FRC · [R] celular',
+    buscar: `Llegá al parcial · Encontrá el ${facultad.aula} · [Shift] correr · [R] celular`,
+    edificio:
+      `Andá al edificio Inchaurrondo (aulas 400), al lado del Posseto y frente al patio · ` +
+      `1° piso · ${facultad.aula}`,
     subir: `Subí al 1° piso: el ${facultad.aula} es arriba`,
     pasillo: `Buscá el ${facultad.aula} en el pasillo`,
   };
@@ -126,7 +128,7 @@ export function createFacultyNarrative({
   }
 
   const states = {
-    // Recién entrado por el portón.
+    // Sobre el sendero de acceso, camino a los edificios.
     ARRIVING: {
       onEnter(ctx) {
         floors.setFloor(0);
@@ -140,7 +142,8 @@ export function createFacultyNarrative({
         input.setLookEnabled(true);
         // Del colectivo al portón, corriendo bajo la lluvia.
         stats.trigger('corriendoLluvia');
-        showTimedText(ctx, pickByThreshold(facultad.textosLlegada, stats.get('mojado')), 3);
+        const arrivalText = pickByThreshold(facultad.textosLlegada, stats.get('mojado'));
+        showTimedText(ctx, `${arrivalText} El parcial es en el ${facultad.aula}.`, 4.5);
       },
       onUpdate(delta, ctx) {
         explore(delta, ctx);
@@ -148,16 +151,15 @@ export function createFacultyNarrative({
       },
     },
 
-    // Buscando el aula 500 (ya con el mensaje del grupo apurándolo).
+    // Buscando el aula 411 (con un mensaje de Mamá mientras avanza).
     SEARCHING: {
       onEnter() {
         phone.deliver(facultad.mensajeAlEntrar);
       },
       onUpdate(delta, ctx) {
         explore(delta, ctx);
-        // Si da vueltas sin saber adónde ir, el grupo le dice.
+        // Si da vueltas sin saber adónde ir, el objetivo le da la ubicación completa.
         if (!ctx.knowsWay && ctx.elapsed >= facultad.pista.segundos) {
-          phone.deliver(facultad.pista.mensaje);
           learnTheWay(ctx);
         }
       },

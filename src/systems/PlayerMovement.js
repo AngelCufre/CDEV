@@ -6,6 +6,7 @@ import { config } from '../config.js';
  * y resuelto contra las colisiones de la escena. Compartido por todas las escenas.
  * `update` devuelve la distancia horizontal recorrida en ese frame.
  * `speed` (m/s) permite caminar más lento en alguna escena (por ejemplo, apretado).
+ * Mantener Shift multiplica esa velocidad para correr.
  */
 export function createPlayerMovement({
   camera,
@@ -28,7 +29,8 @@ export function createPlayerMovement({
 
     let dx = 0;
     let dz = 0;
-    const step = speed * delta;
+    const running = input.isHeld('ShiftLeft') || input.isHeld('ShiftRight');
+    const step = speed * (running ? config.player.multiplicadorCorrer : 1) * delta;
     if (move.forward) {
       dx += forward.x * step;
       dz += forward.z * step;

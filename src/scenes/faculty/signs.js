@@ -188,8 +188,8 @@ function canvasPanel(canvas, { width, height, x, y, z, facing }) {
   return mesh;
 }
 
-/** Letrero de la entrada del edificio: emblema y "UTN FRC" en azul oscuro sobre el muro. */
-export function createLogoSign({ width, height, x, y, z, facing }) {
+/** Letrero de la entrada: emblema de la UTN y nombre del edificio. */
+export function createLogoSign({ width, height, x, y, z, facing, buildingName }) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width * PX_PER_METER);
   canvas.height = Math.round(height * PX_PER_METER);
@@ -201,9 +201,10 @@ export function createLogoSign({ width, height, x, y, z, facing }) {
   drawUtnEmblem(ctx, canvas.width * 0.24, canvas.height / 2, size, color);
   ctx.fillStyle = color;
   ctx.textBaseline = 'middle';
-  ctx.font = `bold ${Math.round(canvas.height * 0.3)}px sans-serif`;
-  ctx.fillText('UTN', canvas.width * 0.44, canvas.height * 0.33);
-  ctx.fillText('FRC', canvas.width * 0.44, canvas.height * 0.68);
+  ctx.font = `bold ${Math.round(canvas.height * 0.13)}px sans-serif`;
+  ctx.fillText('EDIFICIO', canvas.width * 0.44, canvas.height * 0.32);
+  ctx.font = `bold ${Math.round(canvas.height * 0.19)}px sans-serif`;
+  ctx.fillText(buildingName.toUpperCase(), canvas.width * 0.44, canvas.height * 0.66);
   return canvasPanel(canvas, { width, height, x, y, z, facing });
 }
 

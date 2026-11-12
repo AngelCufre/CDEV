@@ -92,7 +92,9 @@ export function createBusStopNarrative({
   const states = {
     // Sale por la puerta de su casa y camina hasta la parada.
     GOING: {
-      onEnter() {
+      onEnter(ctx) {
+        ctx.goingFor = 0;
+        ctx.goingHintShown = false;
         camera.position.set(playerStart.x, config.player.alturaOjos, playerStart.z);
         camera.quaternion.setFromEuler(new THREE.Euler(0, playerStart.yaw, 0, 'YXZ'));
         camera.fov = config.player.fov;
@@ -100,12 +102,25 @@ export function createBusStopNarrative({
 
         overlay.hideFadeToBlack();
         overlay.setCrosshairVisible(true);
-        overlay.setObjective(`Caminá hasta la parada del ${parada.linea} · [R] mirar el celular`);
+        overlay.setObjective(
+          `Llegá al parcial · Caminá hasta la parada del ${parada.linea} · [R] celular`,
+        );
         input.setLookEnabled(true);
       },
       onUpdate(delta, ctx) {
         explore(delta, ctx);
-        if (isAtBusStop()) ctx.machine.transition('WAITING');
+        ctx.goingFor += delta;
+        if (isAtBusStop()) {
+          ctx.machine.transition('WAITING');
+        } else if (
+          !ctx.goingHintShown &&
+          ctx.goingFor >= parada.pistaCaminoSegundos
+        ) {
+          ctx.goingHintShown = true;
+          overlay.setObjective(
+            `Seguí por la vereda hasta el cartel azul de la línea ${parada.linea}`,
+          );
+        }
       },
     },
 

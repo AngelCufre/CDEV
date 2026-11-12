@@ -125,8 +125,8 @@ function buildBooth(ctx) {
         { text: 'Diseño de Sistemas', size: 0.045, bold: true },
         { text: '3K5 · hoy 8 hs', size: 0.04 },
         { text: 'AULA 411', size: 0.08, bold: true, color: '#1d3557' },
-        { text: '1° piso · aulas 400', size: 0.04 },
-        { text: '(al lado del UTN FRC)', size: 0.04 },
+        { text: '1° piso · INCHAURRONDO', size: 0.04 },
+        { text: 'Aulas 400', size: 0.04 },
       ],
     },
     {

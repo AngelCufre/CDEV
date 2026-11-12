@@ -27,7 +27,7 @@ const readingPose = {
  * Narrativa de la última escena, el despertar: el estudiante abre los ojos de golpe en su
  * cama, con las cortinas cerradas, y se da cuenta de que el parcial fue una pesadilla. Un
  * haz de sol se cuela entre las cortinas y ilumina la pared donde cuelga su título de
- * Ingeniero en Sistemas de Información. Lo mira de cerca y la escena (y el juego) termina.
+ * Licenciado en Sistemas de Información. Lo mira de cerca y la escena (y el juego) termina.
  */
 export function createDespertarNarrative({
   camera,
@@ -78,6 +78,7 @@ export function createDespertarNarrative({
         overlay.hideFadeToBlack();
         overlay.setStatsVisible(false);
         overlay.setObjective(null);
+        overlay.hideSceneTitle();
         overlay.setEyelidIntensity(1);
         overlay.setVignetteIntensity(0);
         input.setLookEnabled(false);
@@ -144,10 +145,12 @@ export function createDespertarNarrative({
     },
 
     EXPLORING: {
-      onEnter() {
+      onEnter(ctx) {
         overlay.setEyelidIntensity(0);
         overlay.setCrosshairVisible(true);
         overlay.setObjective(cfg.objetivo);
+        overlay.showSceneTitle(cfg.tituloEscena, cfg.tituloEscenaKicker);
+        ctx.sceneTitleHideAt = ctx.elapsed + 4.5;
         input.setLookEnabled(true);
       },
       onUpdate(delta) {
@@ -173,6 +176,7 @@ export function createDespertarNarrative({
         ctx.closingShown = false;
         input.setLookEnabled(false);
         overlay.hideNarrativeText();
+        overlay.hideSceneTitle();
       },
       onUpdate(delta, ctx) {
         ctx.timer += delta;
@@ -215,7 +219,14 @@ export function createDespertarNarrative({
     },
   };
 
-  const context = { elapsed: 0, textHideAt: null, sunTime: 0, padStarted: false, nextBirdAt: 3 };
+  const context = {
+    elapsed: 0,
+    textHideAt: null,
+    sceneTitleHideAt: null,
+    sunTime: 0,
+    padStarted: false,
+    nextBirdAt: 3,
+  };
   const machine = new StateMachine(states, 'SLEEPING', context);
   context.machine = machine;
 
@@ -256,6 +267,10 @@ export function createDespertarNarrative({
       if (ctx.textHideAt !== null && ctx.elapsed >= ctx.textHideAt) {
         overlay.hideNarrativeText();
         ctx.textHideAt = null;
+      }
+      if (ctx.sceneTitleHideAt !== null && ctx.elapsed >= ctx.sceneTitleHideAt) {
+        overlay.hideSceneTitle();
+        ctx.sceneTitleHideAt = null;
       }
       machine.update(delta);
     },
