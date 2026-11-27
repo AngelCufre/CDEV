@@ -18,37 +18,37 @@ const smoothstep = (a, b, x) => {
 
 const piano = [
   { t: 1.8, f: 146.83, a: 0.34, pan: -0.25 }, // Re
-  { t: 5.8, f: 155.56, a: 0.30, pan: 0.22 },  // Mib
-  { t: 9.1, f: 110.00, a: 0.32, pan: -0.12 }, // La
-  { t: 12.2, f: 130.81, a: 0.30, pan: 0.18 }, // Do
-  { t: 15.2, f: 146.83, a: 0.37, pan: -0.20 },
-  { t: 20.7, f: 87.31, a: 0.26, pan: 0.18 },  // Fa grave
+  { t: 5.8, f: 155.56, a: 0.3, pan: 0.22 }, // Mib
+  { t: 9.1, f: 110.0, a: 0.32, pan: -0.12 }, // La
+  { t: 12.2, f: 130.81, a: 0.3, pan: 0.18 }, // Do
+  { t: 15.2, f: 146.83, a: 0.37, pan: -0.2 },
+  { t: 20.7, f: 87.31, a: 0.26, pan: 0.18 }, // Fa grave
   { t: 25.0, f: 73.42, a: 0.34, pan: -0.18 }, // Re grave
-  { t: 27.5, f: 55.00, a: 0.32, pan: 0.14 },  // La grave
-  { t: 32.9, f: 77.78, a: 0.36, pan: 0.20 },  // Mib grave
-  { t: 36.1, f: 65.41, a: 0.31, pan: -0.20 }, // Do grave
-  { t: 41.25, f: 55.00, a: 0.36, pan: 0.12 },
+  { t: 27.5, f: 55.0, a: 0.32, pan: 0.14 }, // La grave
+  { t: 32.9, f: 77.78, a: 0.36, pan: 0.2 }, // Mib grave
+  { t: 36.1, f: 65.41, a: 0.31, pan: -0.2 }, // Do grave
+  { t: 41.25, f: 55.0, a: 0.36, pan: 0.12 },
   { t: 45.0, f: 73.42, a: 0.38, pan: -0.18 },
-  { t: 47.75, f: 77.78, a: 0.39, pan: 0.20 },
-  { t: 50.75, f: 36.71, a: 0.54, pan: 0.00 },
+  { t: 47.75, f: 77.78, a: 0.39, pan: 0.2 },
+  { t: 50.75, f: 36.71, a: 0.54, pan: 0.0 },
 ];
 
 const impacts = [
   { t: 17.75, a: 0.46 },
-  { t: 25.00, a: 0.40 },
-  { t: 27.50, a: 0.50 },
-  { t: 32.90, a: 0.58 },
+  { t: 25.0, a: 0.4 },
+  { t: 27.5, a: 0.5 },
+  { t: 32.9, a: 0.58 },
   { t: 36.15, a: 0.42 },
   { t: 41.25, a: 0.55 },
-  { t: 45.00, a: 0.50 },
+  { t: 45.0, a: 0.5 },
   { t: 47.75, a: 0.58 },
   { t: 50.75, a: 0.82 },
 ];
 
 const risers = [
-  { end: 17.75, len: 2.2, a: 0.10 },
-  { end: 27.50, len: 2.0, a: 0.11 },
-  { end: 32.90, len: 2.5, a: 0.13 },
+  { end: 17.75, len: 2.2, a: 0.1 },
+  { end: 27.5, len: 2.0, a: 0.11 },
+  { end: 32.9, len: 2.5, a: 0.13 },
   { end: 41.25, len: 2.8, a: 0.14 },
   { end: 50.75, len: 3.6, a: 0.19 },
 ];
@@ -65,7 +65,7 @@ const randomSigned = () => {
   seed ^= seed << 13;
   seed ^= seed >>> 17;
   seed ^= seed << 5;
-  return ((seed >>> 0) / 0x80000000) - 1;
+  return (seed >>> 0) / 0x80000000 - 1;
 };
 
 const pianoVoice = (t, channelPan) => {
@@ -75,7 +75,7 @@ const pianoVoice = (t, channelPan) => {
     if (dt < 0 || dt > 5.2) continue;
     const attack = 1 - Math.exp(-95 * dt);
     const decay = Math.exp(-0.72 * dt);
-    const panGain = channelPan < 0 ? (1 - note.pan) : (1 + note.pan);
+    const panGain = channelPan < 0 ? 1 - note.pan : 1 + note.pan;
     const body =
       Math.sin(tau * note.f * dt) +
       0.39 * Math.sin(tau * note.f * 2.006 * dt + 0.2) +
@@ -101,11 +101,12 @@ for (let i = 0; i < frameCount; i += 1) {
 
   // Cuerdas graves: Re menor con una friccion de semitono para inquietud.
   const tremolo = 0.72 + 0.28 * Math.sin(tau * (3.7 + 1.5 * smoothstep(28, 49, t)) * t);
-  const lowStrings = build * tremolo * (
-    0.12 * Math.sin(tau * 36.708 * t + 0.18 * Math.sin(tau * 0.08 * t)) +
-    0.045 * Math.sin(tau * 38.891 * t + 1.3) +
-    0.030 * Math.sin(tau * 73.416 * t + 0.6)
-  );
+  const lowStrings =
+    build *
+    tremolo *
+    (0.12 * Math.sin(tau * 36.708 * t + 0.18 * Math.sin(tau * 0.08 * t)) +
+      0.045 * Math.sin(tau * 38.891 * t + 1.3) +
+      0.03 * Math.sin(tau * 73.416 * t + 0.6));
 
   // Ostinato grave que aparece en la segunda mitad y acompana el ritmo de montaje.
   let ostinato = 0;
@@ -156,8 +157,8 @@ for (let i = 0; i < frameCount; i += 1) {
   // Cluster agudo de cuerdas durante el crecimiento final.
   const highIn = smoothstep(29.5, 38, t) * mainCut;
   const vibrato = 1.3 * Math.sin(tau * 5.4 * t);
-  const highL = 0.030 * highIn * Math.sin(tau * (293.66 + vibrato) * t);
-  const highR = 0.030 * highIn * Math.sin(tau * (311.13 - vibrato) * t + 0.8);
+  const highL = 0.03 * highIn * Math.sin(tau * (293.66 + vibrato) * t);
+  const highR = 0.03 * highIn * Math.sin(tau * (311.13 - vibrato) * t + 0.8);
 
   const pianoL = pianoVoice(t, -1);
   const pianoR = pianoVoice(t, 1);
@@ -166,17 +167,15 @@ for (let i = 0; i < frameCount; i += 1) {
   // Una nota final aislada sostiene la placa de titulo.
   const finalDt = t - 51.65;
   const finalEnv = finalDt >= 0 ? (1 - Math.exp(-70 * finalDt)) * Math.exp(-0.62 * finalDt) : 0;
-  const finalNote = finalEnv * (
-    0.26 * Math.sin(tau * 73.416 * Math.max(0, finalDt)) +
-    0.09 * Math.sin(tau * 146.832 * Math.max(0, finalDt) + 0.3)
-  );
+  const finalNote =
+    finalEnv *
+    (0.26 * Math.sin(tau * 73.416 * Math.max(0, finalDt)) +
+      0.09 * Math.sin(tau * 146.832 * Math.max(0, finalDt) + 0.3));
 
-  let left = fadeIn * fadeOut * (
-    0.76 * center + 0.58 * pianoL + tickL + riserL + highL + finalNote
-  );
-  let right = fadeIn * fadeOut * (
-    0.76 * center + 0.58 * pianoR + tickR + riserR + highR + finalNote
-  );
+  let left =
+    fadeIn * fadeOut * (0.76 * center + 0.58 * pianoL + tickL + riserL + highL + finalNote);
+  let right =
+    fadeIn * fadeOut * (0.76 * center + 0.58 * pianoR + tickR + riserR + highR + finalNote);
 
   left = Math.tanh(1.32 * left) * 0.86;
   right = Math.tanh(1.32 * right) * 0.86;
