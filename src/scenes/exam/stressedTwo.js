@@ -75,7 +75,8 @@ export function createStressedTwo({ speed, threshold }) {
   for (const x of AISLES_X) for (const z of AISLES_Z) nodes.push(new THREE.Vector2(x, z));
   const neighbours = nodes.map((node) =>
     nodes.flatMap((other, j) =>
-      other !== node && (other.x === node.x) !== (other.y === node.y) &&
+      other !== node &&
+      (other.x === node.x) !== (other.y === node.y) &&
       Math.abs(other.x - node.x) + Math.abs(other.y - node.y) < 4
         ? [j]
         : [],

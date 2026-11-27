@@ -42,7 +42,7 @@ const output = Buffer.allocUnsafe(frameBytes * frames);
 
 for (let frame = 0; frame < frames; frame += 1) {
   const t = frame / fps;
-  const fadeIn = smoothstep(0.00, 0.48, t);
+  const fadeIn = smoothstep(0.0, 0.48, t);
   const fadeOut = 1 - smoothstep(1.72, 2.125, t);
   const opacity = fadeIn * fadeOut;
   const offset = frame * frameBytes;
@@ -51,7 +51,7 @@ for (let frame = 0; frame < frames; frame += 1) {
   for (let y = 0; y < height; y += 1) {
     const ny = (y - height * 0.46) / (height * 0.72);
     for (let x = 0; x < width; x += 1) {
-      const nx = (x - width * 0.50) / (width * 0.66);
+      const nx = (x - width * 0.5) / (width * 0.66);
       const glow = Math.exp(-(nx * nx * 1.55 + ny * ny * 1.15));
       const vignette = Math.max(0, 1 - 0.34 * (nx * nx + ny * ny));
       const i = offset + (y * width + x) * 3;
