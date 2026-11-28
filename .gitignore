@@ -3,7 +3,7 @@ dist/
 .DS_Store
 *.log
 
-# Material de referencia (parcial, modelos): solo para reconstruir, no se sube.
+# Material de referencia (modelos, parcial): solo para reconstruir, no se sube.
 referencias/*
 
 # Entregables finales del trailer y scripts que permiten regenerarlos.
